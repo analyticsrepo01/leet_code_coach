@@ -132,10 +132,13 @@ export const CoachPane: React.FC = () => {
               }`}
             />
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                <span>Argon Chat + Live Voice</span>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5 flex-wrap">
+                <span>Coach</span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                   gemini-4-argon
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  gemini-3.8-live
                 </span>
               </div>
             </div>

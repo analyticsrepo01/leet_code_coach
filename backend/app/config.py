@@ -10,7 +10,7 @@ class Settings(BaseModel):
         os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() != "false"
     )
 
-    live_model: str = os.getenv("LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
+    live_model: str = os.getenv("LIVE_MODEL", "gemini-3.8-live")
     live_voice: str = os.getenv("LIVE_VOICE", "Puck")
 
     chat_model: str = os.getenv("CHAT_MODEL", "gemini-4-argon")

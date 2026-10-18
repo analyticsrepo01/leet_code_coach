@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT=${PROJECT:?Set PROJECT environment variable}
 REGION=${REGION:-us-central1}
 SERVICE_NAME=${SERVICE_NAME:-livecoach}
-LIVE_MODEL=${LIVE_MODEL:-gemini-live-2.5-flash-native-audio}
+LIVE_MODEL=${LIVE_MODEL:-gemini-3.8-live}
 LIVE_VOICE=${LIVE_VOICE:-Puck}
 CHAT_MODEL=${CHAT_MODEL:-gemini-4-argon}
 CHAT_LOCATION=${CHAT_LOCATION:-global}
