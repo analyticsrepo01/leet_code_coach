@@ -1,0 +1,25 @@
+# secrets / credentials
+.env
+.env.*
+*.key
+*.pem
+*-sa.json
+*service-account*.json
+credentials*.json
+application_default_credentials.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# node / build
+node_modules/
+dist/
+frontend/dist/
+backend/static/
+
+# local
+.DS_Store
+*.log
