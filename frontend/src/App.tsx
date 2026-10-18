@@ -11,6 +11,8 @@ import {
   KeyRound,
   FileText,
   BookMarked,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   fetchConfig,
@@ -61,15 +63,23 @@ export const App: React.FC = () => {
     setRevisionNotes,
   } = useAppStore();
 
-  const [needsToken, setNeedsToken] = useState(false);
+  const [needsToken, setNeedsToken] = useState<boolean>(
+    () => !localStorage.getItem('livecoach_access_token')
+  );
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState('');
 
-  const initializeApp = async () => {
+  const initializeApp = async (isUnlockAttempt = false) => {
+    setAuthChecking(true);
     try {
       const cfg = await fetchConfig();
       if (cfg.target_firm) {
         setTargetFirm(cfg.target_firm);
       }
+      setNeedsToken(false);
+      setAuthError(null);
+      preloadRunner();
       const list = await fetchProblems();
       setProblems(list);
       if (list.length > 0) {
@@ -85,19 +95,23 @@ export const App: React.FC = () => {
       } catch (e) {
         console.warn('Could not fetch server revision notes:', e);
       }
-      setNeedsToken(false);
     } catch (err: any) {
       if (String(err?.message || '').includes('401')) {
+        localStorage.removeItem('livecoach_access_token');
         setNeedsToken(true);
+        if (isUnlockAttempt) {
+          setAuthError('Invalid passcode. Please enter the correct passcode.');
+        }
       } else {
         console.error('Initialization error:', err);
       }
+    } finally {
+      setAuthChecking(false);
     }
   };
 
   useEffect(() => {
-    preloadRunner();
-    initializeApp();
+    initializeApp(false);
   }, []);
 
   useEffect(() => {
@@ -135,33 +149,63 @@ export const App: React.FC = () => {
 
   const handleSaveAccessToken = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tokenInput.trim()) return;
+    setAuthError(null);
     localStorage.setItem('livecoach_access_token', tokenInput.trim());
-    initializeApp();
+    initializeApp(true);
   };
 
-  if (needsToken) {
+  const handleLockApp = () => {
+    coachSocket.disconnect();
+    localStorage.removeItem('livecoach_access_token');
+    setTokenInput('');
+    setAuthError(null);
+    setNeedsToken(true);
+  };
+
+  if (needsToken || authChecking) {
     return (
       <div className="h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
         <form
           onSubmit={handleSaveAccessToken}
-          className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4"
+          className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl"
         >
-          <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-            <KeyRound className="w-4 h-4" />
-            <span>Enter LiveCoach Access Token</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">
+                LiveCoach Passcode Required
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Enter your private passcode to unlock the workspace
+              </div>
+            </div>
           </div>
+
+          {authError && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-rose-950/60 border border-rose-500/40 text-xs text-rose-300">
+              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
           <input
             type="password"
+            autoFocus
+            required
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
-            placeholder="ACCESS_TOKEN"
-            className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white"
+            placeholder="Enter passcode..."
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
           />
           <button
             type="submit"
-            className="w-full py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white"
+            disabled={authChecking && !needsToken}
+            className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold text-white transition"
           >
-            Unlock LiveCoach
+            {authChecking && !needsToken ? 'Verifying...' : 'Unlock LiveCoach'}
           </button>
         </form>
       </div>
@@ -296,6 +340,14 @@ export const App: React.FC = () => {
               {solvedIds.length}/{problems.length} Solved
             </span>
           </div>
+
+          <button
+            onClick={handleLockApp}
+            title="Lock app (require passcode)"
+            className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-slate-200 transition"
+          >
+            <Lock className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
 

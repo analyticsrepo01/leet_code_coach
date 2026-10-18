@@ -1,3 +1,4 @@
+import hmac
 from typing import Optional
 from fastapi import Header, HTTPException, Query, WebSocket, status
 import google.auth
@@ -10,23 +11,29 @@ def verify_http_token(
     x_access_token: Optional[str] = Header(default=None),
     token: Optional[str] = Query(default=None),
 ) -> None:
-    """Verify optional shared ACCESS_TOKEN if configured."""
+    """Verify required app passcode / ACCESS_TOKEN."""
     if not settings.access_token:
         return
-    provided = x_access_token or token
-    if provided != settings.access_token:
+    provided = (x_access_token or token or "").strip()
+    expected = settings.access_token.strip()
+    if not provided or not hmac.compare_digest(provided, expected):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing access token",
+            detail="Invalid or missing passcode",
         )
 
 
 def verify_ws_token(websocket: WebSocket) -> bool:
-    """Verify optional shared ACCESS_TOKEN on WebSocket connection."""
+    """Verify required app passcode / ACCESS_TOKEN on WebSocket connection."""
     if not settings.access_token:
         return True
-    token = websocket.query_params.get("token") or websocket.headers.get("x-access-token")
-    return token == settings.access_token
+    provided = (
+        websocket.query_params.get("token")
+        or websocket.headers.get("x-access-token")
+        or ""
+    ).strip()
+    expected = settings.access_token.strip()
+    return bool(provided) and hmac.compare_digest(provided, expected)
 
 
 def get_vertex_access_token() -> dict:
