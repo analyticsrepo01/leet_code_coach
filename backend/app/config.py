@@ -18,7 +18,7 @@ class Settings(BaseModel):
     avatar_voice: str = os.getenv("AVATAR_VOICE", "kore")
 
     use_firestore: bool = os.getenv("USE_FIRESTORE", "false").lower() == "true"
-    access_token: str = os.getenv("ACCESS_TOKEN", "coach2026")
+    access_token: str = os.getenv("ACCESS_TOKEN", "leetcode2026")
     target_firm: str = os.getenv("TARGET_FIRM", "a top quant trading firm")
 
     problems_dir: Path = Path(

@@ -87,6 +87,7 @@ interface AppState {
     { attempts: number; solved: number; hints: number; failed_runs: number }
   >;
   targetFirm: string;
+  theme: 'dark' | 'light';
 
   setProblems: (problems: ProblemListItem[]) => void;
   setCurrentProblem: (problem: ProblemDetail) => void;
@@ -96,6 +97,7 @@ interface AppState {
   setCoachEngine: (engine: CoachEngine) => void;
   setAvatarName: (name: string) => void;
   setLeftPaneTab: (tab: LeftPaneTab) => void;
+  toggleTheme: () => void;
   setWsStatus: (
     status: AppState['wsStatus'],
     detail?: string,
@@ -177,8 +179,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   solvedIds: [],
   patternStats: {},
   targetFirm: 'Quant & AI Research',
+  theme:
+    (typeof localStorage !== 'undefined' &&
+      (localStorage.getItem('livecoach_theme') as 'dark' | 'light')) ||
+    'dark',
 
   setProblems: (problems) => set({ problems }),
+
+  toggleTheme: () =>
+    set((state) => {
+      const next = state.theme === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('livecoach_theme', next);
+      } catch {}
+      return { theme: next };
+    }),
 
   setCurrentProblem: (problem) => {
     const saved = localStorage.getItem(`livecoach_code_${problem.id}`);

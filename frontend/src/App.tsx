@@ -13,6 +13,8 @@ import {
   BookMarked,
   Lock,
   ShieldAlert,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   fetchConfig,
@@ -50,6 +52,7 @@ export const App: React.FC = () => {
     leftPaneTab,
     revisionNotes,
     unreadNotesCount,
+    theme,
     setProblems,
     setCurrentProblem,
     setMode,
@@ -61,6 +64,7 @@ export const App: React.FC = () => {
     setTargetFirm,
     setLeftPaneTab,
     setRevisionNotes,
+    toggleTheme,
   } = useAppStore();
 
   const [needsToken, setNeedsToken] = useState<boolean>(
@@ -165,23 +169,45 @@ export const App: React.FC = () => {
 
   if (needsToken || authChecking) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
+      <div
+        className={`h-screen w-screen bg-slate-950 flex items-center justify-center p-4 ${
+          theme === 'light' ? 'theme-light' : 'theme-dark'
+        }`}
+      >
         <form
           onSubmit={handleSaveAccessToken}
           className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl"
         >
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-              <KeyRound className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">
-                LiveCoach Passcode Required
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                <KeyRound className="w-5 h-5" />
               </div>
-              <div className="text-[11px] text-slate-400">
-                Enter your private passcode to unlock the workspace
+              <div>
+                <div className="text-sm font-bold text-white">
+                  LiveCoach Passcode Required
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Enter your private passcode to unlock
+                </div>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={
+                theme === 'light'
+                  ? 'Switch to Dark Mode'
+                  : 'Switch to Light Mode'
+              }
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300"
+            >
+              {theme === 'light' ? (
+                <Moon className="w-4 h-4" />
+              ) : (
+                <Sun className="w-4 h-4 text-amber-400" />
+              )}
+            </button>
           </div>
 
           {authError && (
@@ -213,7 +239,11 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+    <div
+      className={`h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden ${
+        theme === 'light' ? 'theme-light' : 'theme-dark'
+      }`}
+    >
       {/* Top Bar */}
       <header className="h-12 px-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between gap-4 shrink-0">
         {/* Left: Brand & Problem Picker */}
@@ -340,6 +370,26 @@ export const App: React.FC = () => {
               {solvedIds.length}/{problems.length} Solved
             </span>
           </div>
+
+          <button
+            onClick={toggleTheme}
+            title={
+              theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'
+            }
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 transition"
+          >
+            {theme === 'light' ? (
+              <>
+                <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Dark</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span>Light</span>
+              </>
+            )}
+          </button>
 
           <button
             onClick={handleLockApp}

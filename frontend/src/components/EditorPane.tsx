@@ -10,6 +10,7 @@ export const EditorPane: React.FC = () => {
     code,
     cursorLine,
     highlight,
+    theme,
     setCode,
     setCursorLine,
     setHighlight,
@@ -136,7 +137,7 @@ export const EditorPane: React.FC = () => {
         <Editor
           height="100%"
           language="python"
-          theme="vs-dark"
+          theme={theme === 'light' ? 'light' : 'vs-dark'}
           value={code}
           onChange={(val) => setCode(val ?? '')}
           onMount={handleEditorMount}

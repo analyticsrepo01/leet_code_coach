@@ -8,7 +8,7 @@ LIVE_MODEL=${LIVE_MODEL:-gemini-live-2.5-flash-native-audio}
 LIVE_VOICE=${LIVE_VOICE:-Puck}
 TARGET_FIRM=${TARGET_FIRM:-a top quant trading firm}
 AVATAR_PROJECT_ID=${AVATAR_PROJECT_ID:-}
-ACCESS_TOKEN=${ACCESS_TOKEN:-coach2026}
+ACCESS_TOKEN=${ACCESS_TOKEN:-leetcode2026}
 AUTH_FLAG="--allow-unauthenticated"
 if [[ "${REQUIRE_IAM_AUTH:-false}" == "true" ]]; then
   AUTH_FLAG="--no-allow-unauthenticated"
