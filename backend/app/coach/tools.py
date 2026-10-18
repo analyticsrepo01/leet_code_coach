@@ -2,6 +2,7 @@ from typing import Any, Callable, Coroutine
 from google.genai import types
 
 from ..problems import Problem
+from ..resources import search_learning_resources
 from ..sessions import RevisionNote, Scorecard, session_store
 
 CLIENT_SIDE_TOOLS = {
@@ -326,17 +327,21 @@ async def execute_server_tool(
         return {"picked_problem": picked}
 
     if name == "save_revision_note":
+        title = str(args.get("title") or f"{problem.id}: {problem.title}")
+        category = str(
+            args.get("category")
+            or (problem.pattern[0].replace("_", " ").title() if problem.pattern else "General")
+        )
+        resources = await search_learning_resources(f"{title} {category} python", max_results=3)
         note = RevisionNote(
             problem_id=problem.id,
             problem_title=problem.title,
-            title=str(args.get("title") or f"{problem.id}: {problem.title}"),
-            category=str(
-                args.get("category")
-                or (problem.pattern[0].replace("_", " ").title() if problem.pattern else "General")
-            ),
+            title=title,
+            category=category,
             key_takeaways=[str(x) for x in (args.get("key_takeaways") or [])],
             code_or_formula=str(args.get("code_or_formula") or ""),
             content=str(args.get("content") or ""),
+            resources=resources,
             source="live_coach",
         )
         saved = session_store.save_note(note)

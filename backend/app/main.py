@@ -15,6 +15,7 @@ from .coach.live_proxy import handle_coach_websocket
 from .coach.prompts import build_system_prompt
 from .config import settings
 from .problems import problem_bank
+from .resources import search_learning_resources
 from .sessions import RevisionNote, Scorecard, session_store
 
 
@@ -57,6 +58,11 @@ class SynthesizeNoteRequest(BaseModel):
     code: str = ""
     custom_topic: Optional[str] = None
     custom_prompt: Optional[str] = None
+
+
+class TutorialNoteRequest(BaseModel):
+    topic: str
+    problem_id: Optional[str] = None
 
 
 @app.get("/healthz")
@@ -288,6 +294,110 @@ Return a JSON object with:
             code_or_formula=prob.reference_solution,
             content=prob.post_training_relevance,
             source="ai_summary",
+        )
+
+    note.resources = await search_learning_resources(
+        f"{focus_topic or note.title} {note.category} python", max_results=3
+    )
+    saved = session_store.save_note(note)
+    return saved.model_dump()
+
+
+@app.get("/api/notes/resources/search", dependencies=[Depends(verify_http_token)])
+async def search_resources_endpoint(q: str) -> list[dict[str, Any]]:
+    if not q or not q.strip():
+        return []
+    return await search_learning_resources(q.strip(), max_results=6)
+
+
+@app.post("/api/notes/tutorial", dependencies=[Depends(verify_http_token)])
+async def generate_from_scratch_tutorial(req: TutorialNoteRequest) -> dict[str, Any]:
+    if not problem_bank.list_all():
+        problem_bank.load()
+    topic = req.topic.strip() or "Python Dictionaries (Hash Maps) from Scratch"
+    prob = problem_bank.get(req.problem_id) if req.problem_id else None
+
+    prompt = f"""You are LiveCoach creating a beginner-friendly yet interview-grade "5-Minute From-Scratch Tutorial & Cheat-Sheet" in Python on:
+Topic: {topic}
+{f"Related Interview Problem: {prob.id} — {prob.title}" if prob else ""}
+
+The candidate wants to learn this topic from scratch (for example, how to use it in Python, how it works under the hood, every essential method/idiom, and how it solves coding interview problems).
+
+Return a JSON object with:
+- "title": Clear tutorial title (e.g. "5-Min Tutorial: Python Hash Maps (dict, Counter, defaultdict)")
+- "category": Clean category tag (e.g. "Python Fundamentals", "Hash Maps", "Heaps", "Sliding Window", "Dynamic Programming", "Probability")
+- "key_takeaways": Array of 4 to 6 crisp bullet points covering:
+  1. Mental model & why we use it (including time/space complexity of core operations)
+  2. Essential Python syntax & methods to memorize
+  3. Top 2 interview patterns where this immediately turns O(n^2) into O(n)
+  4. Common pitfalls / edge cases in Python interviews
+- "code_or_formula": A well-commented, runnable ~20-35 line Python cheat-sheet showing creation, lookup, iteration, idiomatic helpers (`get`, `setdefault`, `defaultdict`, `Counter`, etc.), and a classic interview mini-example
+- "content": A clear, structured 5-minute read divided into:
+  - 1. Mental Model (From Scratch)
+  - 2. Step-by-Step Python Operations
+  - 3. Classic Interview Pattern Walkthrough
+  - 4. Practice Micro-Exercise
+"""
+    resources = await search_learning_resources(f"{topic} python tutorial", max_results=4)
+    try:
+        project = settings.google_cloud_project
+        if not project:
+            try:
+                _, default_proj = google.auth.default()
+                project = default_proj or ""
+            except Exception:
+                project = ""
+        client = genai.Client(
+            vertexai=settings.google_genai_use_vertexai,
+            project=project or None,
+            location=settings.google_cloud_location or "us-central1",
+        )
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+        parsed = json.loads(response.text or "{}")
+        note = RevisionNote(
+            problem_id=prob.id if prob else "TUTORIAL",
+            problem_title=prob.title if prob else "5-Min From-Scratch Tutorial",
+            title=str(parsed.get("title") or f"5-Min Tutorial: {topic}"),
+            category=str(parsed.get("category") or "Python Tutorial"),
+            key_takeaways=[str(x) for x in (parsed.get("key_takeaways") or [])],
+            code_or_formula=str(parsed.get("code_or_formula") or ""),
+            content=str(parsed.get("content") or ""),
+            resources=resources,
+            source="tutorial",
+        )
+    except Exception as e:
+        note = RevisionNote(
+            problem_id=prob.id if prob else "TUTORIAL",
+            problem_title=prob.title if prob else "5-Min From-Scratch Tutorial",
+            title=f"5-Min Tutorial: {topic}",
+            category="Python Tutorial",
+            key_takeaways=[
+                "Hash maps (Python dict) provide O(1) average-time lookup, insert, and delete.",
+                "Use d.get(key, default) to avoid KeyError, or collections.defaultdict / Counter.",
+                "Classic pattern: store seen values or prefix sums in a dict to turn O(n^2) nested loops into O(n).",
+            ],
+            code_or_formula=(
+                "from collections import Counter, defaultdict\n\n"
+                "# 1. Basic dict operations — O(1) average\n"
+                "seen = {}\n"
+                "seen['a'] = 1\n"
+                "count = seen.get('a', 0)\n\n"
+                "# 2. Frequency map with Counter\n"
+                "freq = Counter(['a', 'b', 'a'])\n\n"
+                "# 3. Grouping with defaultdict(list)\n"
+                "groups = defaultdict(list)\n"
+                "groups['key'].append(42)"
+            ),
+            content=f"5-Minute Tutorial on {topic}. (Fallback note: {e})",
+            resources=resources,
+            source="tutorial",
         )
 
     saved = session_store.save_note(note)

@@ -28,7 +28,10 @@ Always reinforce core phone-screen habits:
 3. Think out loud the whole time.
 4. Name edge cases: empty input, duplicates, negatives (which break sum-based sliding windows), ties, float precision / overflow.
 5. For ML / post-training problems, probe numerical stability (log-sum-exp, log-sigmoid), tensor shapes, and padding/prompt mask semantics.
-6. Whenever the candidate asks to save/create a note on a concept, formula, or trick (or after you explain an important derivation or review insight), call `save_revision_note` so it is stored in their Reference Notes tab for revision.
+6. Whenever the candidate asks to save/create a note on a concept, formula, or trick (or after you explain an important derivation or review insight), call `save_revision_note` so it is stored in their Reference Notes tab for revision (along with curated YouTube tutorials).
+7. FROM-SCRATCH 5-MINUTE TUTORIALS: Whenever the candidate asks you to teach or explain a topic from scratch (for example, how Python `dict` / hash maps work, `collections.Counter` / `defaultdict`, `heapq`, `deque`, prefix sums, dynamic programming, or probability/Markov chains):
+   -Immediately call `save_revision_note` with a comprehensive from-scratch cheat-sheet (`title`, `category`, `key_takeaways`, `code_or_formula` showing concrete Python syntax & patterns, and `content` explaining the mental model and common interview idioms) so the candidate can read along in their Reference Notes tab.
+   - Then guide them through a friendly, structured 5-minute interactive voice tutorial in 4 short stages: (Stage 1) Mental Model & Why It's O(1), (Stage 2) Core Python Syntax (`d = {}`, `d.get(k, 0)`, `defaultdict`, `Counter`), (Stage 3) The Classic Interview Pattern (e.g. complement lookup / frequency counting), and (Stage 4) Quick Check-for-Understanding question where they try a 2-line snippet in the editor.
 """
 
 TUTOR_ADDENDUM = """

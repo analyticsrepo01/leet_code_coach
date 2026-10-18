@@ -54,6 +54,15 @@ export interface ScorecardData {
   summary?: string;
 }
 
+export interface LearningResourceItem {
+  title: string;
+  url: string;
+  video_id?: string;
+  channel?: string;
+  duration?: string;
+  kind?: 'youtube' | 'docs' | 'article' | string;
+}
+
 export interface RevisionNoteItem {
   id: string;
   problem_id: string;
@@ -63,7 +72,8 @@ export interface RevisionNoteItem {
   key_takeaways: string[];
   code_or_formula: string;
   content: string;
-  source: 'live_coach' | 'ai_summary' | 'manual' | string;
+  resources?: LearningResourceItem[];
+  source: 'live_coach' | 'ai_summary' | 'tutorial' | 'manual' | string;
   created_at: number;
 }
 
@@ -206,6 +216,7 @@ export async function synthesizeRevisionNoteApi(payload: {
   transcript: Array<{ role: string; text: string }>;
   code: string;
   custom_topic?: string;
+  custom_prompt?: string;
 }): Promise<RevisionNoteItem> {
   const res = await fetch('/api/notes/synthesize', {
     method: 'POST',
@@ -213,5 +224,29 @@ export async function synthesizeRevisionNoteApi(payload: {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Failed to synthesize revision note');
+  return res.json();
+}
+
+export async function generateTutorialNoteApi(payload: {
+  topic: string;
+  problem_id?: string;
+}): Promise<RevisionNoteItem> {
+  const res = await fetch('/api/notes/tutorial', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to generate 5-minute tutorial note');
+  return res.json();
+}
+
+export async function searchLearningResourcesApi(
+  query: string
+): Promise<LearningResourceItem[]> {
+  const res = await fetch(
+    `/api/notes/resources/search?q=${encodeURIComponent(query)}`,
+    { headers: getAuthHeaders() }
+  );
+  if (!res.ok) throw new Error('Failed to search learning resources');
   return res.json();
 }

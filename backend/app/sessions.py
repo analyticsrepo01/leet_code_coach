@@ -33,7 +33,8 @@ class RevisionNote(BaseModel):
     key_takeaways: list[str] = Field(default_factory=list)
     code_or_formula: str = ""
     content: str = ""
-    source: str = "live_coach"  # "live_coach" | "ai_summary" | "manual"
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    source: str = "live_coach"  # "live_coach" | "ai_summary" | "tutorial" | "manual"
     created_at: float = Field(default_factory=time.time)
 
 
