@@ -1,0 +1,67 @@
+id: M16
+slug: kl-divergence-estimators
+title: Monte-Carlo KL Estimators (Schulman k1, k2, k3)
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+difficulty: medium
+post_training_relevance: PPO and GRPO use Schulman's k3 estimator `(r - 1) - log r`
+  as a low-variance, strictly non-negative unbiased estimator of KL(pi || ref).
+statement: 'Given 1D arrays of sampled token log-probabilities `logp` ($\log \pi(y_t
+  | x)$ where $y_t \sim \pi$) and reference log-probabilities `logq` ($\log \pi_{\text{ref}}(y_t
+  | x)$), compute the sample means `[k1, k2, k3]` of John Schulman''s three Monte-Carlo
+  estimators of $\text{KL}(\pi \| \pi_{\text{ref}})$:
+
+
+  - `k1`: $\log \pi - \log \pi_{\text{ref}} = -\log r$ where $r = \pi_{\text{ref}}
+  / \pi = \exp(\text{logq} - \text{logp})$
+
+  - `k2`: $\frac{1}{2} (\log \pi - \log \pi_{\text{ref}})^2 = \frac{1}{2} (\log r)^2$
+
+  - `k3`: $(r - 1) - \log r$'
+examples:
+- input: logp = [-1.0, -2.0], logq = [-1.5, -1.5]
+  output: '[0.0, 0.125, 0.127626]'
+constraints:
+- 1 <= len(logp) <= 10^5
+function_name: kl_estimators
+starter_code: "import numpy as np\n\ndef kl_estimators(logp, logq) -> list[float]:\n\
+  \    # Return [mean(k1), mean(k2), mean(k3)]\n    pass\n"
+tests:
+- args:
+  - - -1.0
+    - -2.0
+  - - -1.5
+    - -1.5
+  expected:
+  - 0.0
+  - 0.125
+  - 0.1276259652063807
+hidden_tests:
+- args:
+  - - -1.0
+    - -1.0
+  - - -1.0
+    - -1.0
+  expected:
+  - 0.0
+  - 0.0
+  - 0.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Let `log_r = logq - logp` and `r = np.exp(log_r)`.
+- '`k1 = -log_r`, `k2 = 0.5 * (log_r ** 2)`, and `k3 = (r - 1.0) - log_r`.'
+optimal:
+  time: O(N)
+  space: O(N)
+follow_ups:
+- Why is `E_{y ~ pi}[k3] == KL(pi || ref)` exact while `k3 >= 0` pointwise (unlike
+  `k1` which can be negative on individual samples)?
+reference_solution: "import numpy as np\n\ndef kl_estimators(logp, logq) -> list[float]:\n\
+  \    logp = np.asarray(logp, dtype=np.float64)\n    logq = np.asarray(logq, dtype=np.float64)\n\
+  \    log_r = logq - logp\n    r = np.exp(log_r)\n    k1 = -log_r\n    k2 = 0.5 *\
+  \ (log_r ** 2)\n    k3 = (r - 1.0) - log_r\n    return [float(np.mean(k1)), float(np.mean(k2)),\
+  \ float(np.mean(k3))]\n"

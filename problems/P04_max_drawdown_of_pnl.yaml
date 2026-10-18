@@ -1,0 +1,78 @@
+id: P04
+slug: max-drawdown-of-pnl
+title: Max Drawdown of P&L Curve
+leetcode: null
+day: 1
+pattern:
+- prefix_sum
+- running_state
+difficulty: easy
+post_training_relevance: Tracking a running peak and maximum drop is identical to
+  detecting the worst validation reward or eval benchmark regression across RL training
+  checkpoints.
+statement: 'Given a list of daily P&L changes `pnl` (which may be positive, negative,
+  or zero), starting from cumulative equity `0.0` at time `0`, compute the **maximum
+  peak-to-trough drawdown** of the cumulative equity curve.
+
+
+  If the cumulative equity never drops below a previous peak (including `0.0`), return
+  `0.0`.'
+examples:
+- input: pnl = [10, -4, -8, 5, 12, -6]
+  output: '12.0'
+  explanation: 'Cumulative curve: [0, 10, 6, -2, 3, 15, 9]. Peak 10 to trough -2 is
+    a drawdown of 12.0.'
+- input: pnl = [5, 5, 5]
+  output: '0.0'
+constraints:
+- 1 <= len(pnl) <= 10^5
+- -10^6 <= pnl[i] <= 10^6
+function_name: max_drawdown
+starter_code: "def max_drawdown(pnl: list[float]) -> float:\n    # Return the largest\
+  \ peak-to-trough drop in cumulative P&L (starting at 0.0)\n    pass\n"
+tests:
+- args:
+  - - 10
+    - -4
+    - -8
+    - 5
+    - 12
+    - -6
+  expected: 12.0
+- args:
+  - - 5
+    - 5
+    - 5
+  expected: 0.0
+hidden_tests:
+- args:
+  - - -5
+    - -10
+    - 3
+  expected: 15.0
+- args:
+  - - 4
+    - -2
+    - 6
+    - -9
+    - 1
+  expected: 9.0
+compare: float_tol
+time_limit_ms: 2000
+hints:
+- What is the cumulative equity at step t? Start with `equity = 0.0` and `peak = 0.0`
+  before day 1.
+- At each step, update `equity += x`, then `peak = max(peak, equity)`, and `max_dd
+  = max(max_dd, peak - equity)`.
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- How would you also return the start and end indices `[peak_idx, trough_idx]` of
+  the maximum drawdown?
+- What if drawdown is defined in relative percentage terms `(peak - equity) / peak`
+  on a positive price series?
+reference_solution: "def max_drawdown(pnl: list[float]) -> float:\n    equity = 0.0\n\
+  \    peak = 0.0\n    max_dd = 0.0\n    for x in pnl:\n        equity += x\n    \
+  \    if equity > peak:\n            peak = equity\n        dd = peak - equity\n\
+  \        if dd > max_dd:\n            max_dd = dd\n    return float(max_dd)\n"

@@ -1,0 +1,76 @@
+id: P03
+slug: group-anagrams
+title: Group Anagrams
+leetcode: 49
+day: 1
+pattern:
+- hash_map
+difficulty: medium
+post_training_relevance: Canonical key hashing is used in SFT dataset curation to
+  cluster and deduplicate permutation-equivalent prompt templates or multiset token
+  bags.
+statement: Given an array of strings `strs`, group the anagrams together. Return the
+  groups sorted by `(len(group), group[0])` and with each group sorted lexicographically
+  so the output is deterministic.
+examples:
+- input: strs = ["eat","tea","tan","ate","nat","bat"]
+  output: '[["bat"], ["nat", "tan"], ["ate", "eat", "tea"]]'
+constraints:
+- 1 <= len(strs) <= 10^4
+- 0 <= len(strs[i]) <= 100
+- strs[i] consists of lowercase English letters
+function_name: group_anagrams
+starter_code: "def group_anagrams(strs: list[str]) -> list[list[str]]:\n    # Return\
+  \ deterministic sorted groups: each group sorted, and groups sorted by (len(g),\
+  \ g[0])\n    pass\n"
+tests:
+- args:
+  - - eat
+    - tea
+    - tan
+    - ate
+    - nat
+    - bat
+  expected:
+  - - bat
+  - - nat
+    - tan
+  - - ate
+    - eat
+    - tea
+- args:
+  - - ''
+  expected:
+  - - ''
+hidden_tests:
+- args:
+  - - a
+  expected:
+  - - a
+- args:
+  - - ab
+    - ba
+    - abc
+    - cba
+  expected:
+  - - ab
+    - ba
+  - - abc
+    - cba
+compare: exact
+time_limit_ms: 2000
+hints:
+- Two strings are anagrams if and only if they have the same canonical representation.
+- You can use `tuple(sorted(s))` in O(L log L) or a 26-element character count tuple
+  in O(L) as the dictionary key.
+- Remember to sort each group and sort the list of groups by `(len(g), g[0])`.
+optimal:
+  time: O(n * L)
+  space: O(n * L)
+follow_ups:
+- When is a 26-count tuple faster than sorting the string, and what if the alphabet
+  is 128k BPE tokens?
+reference_solution: "from collections import defaultdict\n\ndef group_anagrams(strs:\
+  \ list[str]) -> list[list[str]]:\n    groups = defaultdict(list)\n    for s in strs:\n\
+  \        groups[tuple(sorted(s))].append(s)\n    res = [sorted(g) for g in groups.values()]\n\
+  \    res.sort(key=lambda g: (len(g), g[0]))\n    return res\n"

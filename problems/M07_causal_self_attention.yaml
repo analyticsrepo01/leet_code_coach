@@ -1,0 +1,100 @@
+id: M07
+slug: causal-self-attention
+title: Scaled Dot-Product Causal Self-Attention
+leetcode: null
+day: 2
+pattern:
+- numpy
+- numerics
+- masking
+difficulty: medium
+post_training_relevance: Implementing causal attention from scratch in NumPy is one
+  of the most frequent ML coding phone-screen problems.
+statement: 'Given query, key, and value tensors `Q`, `K`, `V` of shape `(T, D)` (or
+  `(B, T, D)`), compute **scaled dot-product causal self-attention**:
+
+
+  $$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{Q K^T}{\sqrt{D}} + M_{\text{causal}}\right)
+  V$$
+
+
+  where $M_{\text{causal}}[i, j] = 0$ if $j \le i$ and $-\infty$ if $j > i$.'
+examples:
+- input: Q = [[1.0, 0.0], [0.0, 1.0]], K = [[1.0, 0.0], [0.0, 1.0]], V = [[10.0, 0.0],
+    [0.0, 20.0]]
+  output: '[[10.0, 0.0], [3.30238, 13.39523]]'
+constraints:
+- 1 <= T <= 128
+- 1 <= D <= 128
+function_name: causal_attention
+starter_code: "import numpy as np\n\ndef causal_attention(Q, K, V):\n    Q = np.asarray(Q,\
+  \ dtype=np.float64)\n    K = np.asarray(K, dtype=np.float64)\n    V = np.asarray(V,\
+  \ dtype=np.float64)\n    pass\n"
+tests:
+- args:
+  - - - 1.0
+      - 0.0
+    - - 0.0
+      - 1.0
+  - - - 1.0
+      - 0.0
+    - - 0.0
+      - 1.0
+  - - - 10.0
+      - 0.0
+    - - 0.0
+      - 20.0
+  expected:
+  - - 10.0
+    - 0.0
+  - - 3.302384514122972
+    - 13.395230971754055
+- args:
+  - - - 1.0
+      - 2.0
+  - - - 1.0
+      - 2.0
+  - - - 5.0
+      - 6.0
+  expected:
+  - - 5.0
+    - 6.0
+hidden_tests:
+- args:
+  - - - - 1.0
+        - 0.0
+      - - 1.0
+        - 0.0
+  - - - - 1.0
+        - 0.0
+      - - 1.0
+        - 0.0
+  - - - - 2.0
+        - 4.0
+      - - 6.0
+        - 8.0
+  expected:
+  - - - 2.0
+      - 4.0
+    - - 4.0
+      - 6.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Compute scaled scores `scores = np.matmul(Q, np.swapaxes(K, -1, -2)) / np.sqrt(D)`.
+- Build an upper-triangular boolean mask `upper = np.triu(np.ones((T, T), dtype=bool),
+  k=1)` and set `scores[..., upper] = -np.inf`.
+- Apply numerically stable softmax along `axis=-1`, then `np.matmul(probs, V)`.
+optimal:
+  time: O(B * T^2 * D)
+  space: O(B * T^2)
+follow_ups:
+- Why do we divide by `sqrt(D)` before softmax? What happens to variance and softmax
+  gradients if `D` is large and we don't scale?
+reference_solution: "import numpy as np\n\ndef causal_attention(Q, K, V):\n    Q =\
+  \ np.asarray(Q, dtype=np.float64)\n    K = np.asarray(K, dtype=np.float64)\n   \
+  \ V = np.asarray(V, dtype=np.float64)\n    d = Q.shape[-1]\n    t = Q.shape[-2]\n\
+  \    scores = np.matmul(Q, np.swapaxes(K, -1, -2)) / np.sqrt(d)\n    mask = np.triu(np.ones((t,\
+  \ t), dtype=bool), k=1)\n    scores = np.where(mask, -np.inf, scores)\n    m = np.max(scores,\
+  \ axis=-1, keepdims=True)\n    exp_s = np.exp(scores - m)\n    probs = exp_s / np.sum(exp_s,\
+  \ axis=-1, keepdims=True)\n    out = np.matmul(probs, V)\n    return out.tolist()\n"

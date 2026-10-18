@@ -1,0 +1,71 @@
+id: P10
+slug: top-k-frequent-elements
+title: Top K Frequent Elements
+leetcode: 347
+day: 1
+pattern:
+- heap
+- hash_map
+difficulty: medium
+post_training_relevance: Directly mirrors top-k token/n-gram extraction in tokenizer
+  training and top-k logit selection.
+statement: Given an integer array `nums` and an integer `k`, return the `k` most frequent
+  elements, sorted from highest frequency to lowest (break ties by smaller integer
+  value).
+examples:
+- input: nums = [1,1,1,2,2,3], k = 2
+  output: '[1, 2]'
+- input: nums = [1], k = 1
+  output: '[1]'
+constraints:
+- 1 <= len(nums) <= 10^5
+- 1 <= k <= number of unique elements
+function_name: top_k_frequent
+starter_code: "import heapq\nfrom collections import Counter\n\ndef top_k_frequent(nums:\
+  \ list[int], k: int) -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 1
+    - 1
+    - 2
+    - 2
+    - 3
+  - 2
+  expected:
+  - 1
+  - 2
+- args:
+  - - 1
+  - 1
+  expected:
+  - 1
+hidden_tests:
+- args:
+  - - 4
+    - 1
+    - -1
+    - 2
+    - -1
+    - 2
+    - 3
+  - 2
+  expected:
+  - -1
+  - 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- First count frequencies with `Counter(nums)` in O(n).
+- 'To beat O(n log n) full sorting when k << n, maintain a min-heap of size `k` or
+  use `heapq.nsmallest(k, counts.items(), key=lambda kv: (-kv[1], kv[0]))`.'
+- Alternatively, bucket sort by frequency `[0..n]` gives O(n) worst-case time.
+optimal:
+  time: O(n log k) or O(n)
+  space: O(n)
+follow_ups:
+- If `nums` is an infinite stream, can we maintain exact top-k in bounded memory?
+  (Discuss Count-Min Sketch + heap / Misra-Gries).
+reference_solution: "import heapq\nfrom collections import Counter\n\ndef top_k_frequent(nums:\
+  \ list[int], k: int) -> list[int]:\n    counts = Counter(nums)\n    best = heapq.nsmallest(k,\
+  \ counts.items(), key=lambda kv: (-kv[1], kv[0]))\n    return [x for x, _ in best]\n"

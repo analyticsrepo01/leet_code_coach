@@ -1,0 +1,82 @@
+id: M05
+slug: grpo-group-advantages
+title: GRPO Group-Relative Advantage Normalization
+leetcode: null
+day: 2
+pattern:
+- hash_map
+- numerics
+- numpy
+difficulty: medium
+post_training_relevance: Group Relative Policy Optimization (DeepSeekMath / DeepSeek-R1)
+  replaces the value critic by normalizing rollout rewards within each prompt group.
+statement: 'Given a 1D array of rollout `rewards` of length `N`, a 1D list of `group_ids`
+  (prompt IDs, length `N`), and `eps: float = 1e-6`, compute the per-rollout **GRPO
+  group-normalized advantage**:
+
+
+  $$A_i = \frac{r_i - \mu_{g(i)}}{\sigma_{g(i)} + \epsilon}$$
+
+
+  where $\mu_g$ and $\sigma_g$ are the population mean and population standard deviation
+  (`ddof=0`) of rewards in group $g$. If all rewards in a group are identical ($\sigma_g
+  == 0$), its advantages should be `0.0`.'
+examples:
+- input: rewards = [1.0, 3.0, 5.0, 5.0], group_ids = [0, 0, 1, 1], eps = 1e-6
+  output: '[-1.0, 1.0, 0.0, 0.0]'
+constraints:
+- 1 <= N <= 10^5
+function_name: grpo_advantages
+starter_code: "import numpy as np\nfrom collections import defaultdict\n\ndef grpo_advantages(rewards,\
+  \ group_ids, eps: float = 1e-6):\n    pass\n"
+tests:
+- args:
+  - - 1.0
+    - 3.0
+    - 5.0
+    - 5.0
+  - - 0
+    - 0
+    - 1
+    - 1
+  - 1.0e-06
+  expected:
+  - -0.999999000001
+  - 0.999999000001
+  - 0.0
+  - 0.0
+hidden_tests:
+- args:
+  - - 0.0
+    - 1.0
+    - 2.0
+  - - a
+    - a
+    - a
+  - 1.0e-08
+  expected:
+  - -1.22474485639
+  - 0.0
+  - 1.22474485639
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Group indices by `group_id` using `defaultdict(list)`.
+- For each group, compute `vals = rewards[idxs]`, `mu = np.mean(vals)`, `std = np.std(vals,
+  ddof=0)`.
+- If `std == 0`, set the group's advantages to `0.0`; otherwise `(vals - mu) / (std
+  + eps)`.
+optimal:
+  time: O(N)
+  space: O(N)
+follow_ups:
+- What happens to GRPO updates when a prompt is too easy (all G rollouts get reward
+  1) or too hard (all get 0)?
+- Why does Dr. GRPO propose removing the `1 / std` division and response-length normalization?
+reference_solution: "import numpy as np\nfrom collections import defaultdict\n\ndef\
+  \ grpo_advantages(rewards, group_ids, eps: float = 1e-6):\n    rewards = np.asarray(rewards,\
+  \ dtype=np.float64)\n    groups = defaultdict(list)\n    for i, g in enumerate(group_ids):\n\
+  \        groups[g].append(i)\n    adv = np.zeros_like(rewards)\n    for idxs in\
+  \ groups.values():\n        vals = rewards[idxs]\n        mu = np.mean(vals)\n \
+  \       std = np.std(vals, ddof=0)\n        if std > 0.0:\n            adv[idxs]\
+  \ = (vals - mu) / (std + eps)\n    return adv.tolist()\n"

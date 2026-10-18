@@ -1,0 +1,60 @@
+id: M15
+slug: bradley-terry-reward-loss
+title: Bradley-Terry Pairwise Reward Model Loss & Accuracy
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+difficulty: easy
+post_training_relevance: Objective function used to train pairwise RLHF reward models
+  before PPO or rejection sampling.
+statement: 'Given 1D arrays of scalar reward-model predictions `r_chosen` and `r_rejected`
+  (each of shape `(B,)`), compute `[loss, accuracy]`:
+
+
+  1. `loss = -mean(log_sigmoid(r_chosen - r_rejected))` (must be numerically stable!).
+
+  2. `accuracy = mean(r_chosen > r_rejected)` as a float in `[0.0, 1.0]`.'
+examples:
+- input: r_chosen = [2.0, 0.5], r_rejected = [1.0, 1.0]
+  output: '[0.643669, 0.5]'
+constraints:
+- 1 <= B <= 10^5
+function_name: bt_loss
+starter_code: "import numpy as np\n\ndef bt_loss(r_chosen, r_rejected) -> list[float]:\n\
+  \    # Return [loss, accuracy]\n    pass\n"
+tests:
+- args:
+  - - 2.0
+    - 0.5
+  - - 1.0
+    - 1.0
+  expected:
+  - 0.6436693358491647
+  - 0.5
+hidden_tests:
+- args:
+  - - 1000.0
+    - 5.0
+  - - -1000.0
+    - 4.0
+  expected:
+  - 0.15663084375911143
+  - 1.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Let `diff = r_chosen - r_rejected`.
+- Use `np.logaddexp(0.0, -diff)` for `-log_sigmoid(diff)`.
+optimal:
+  time: O(B)
+  space: O(B)
+follow_ups:
+- Why is the Bradley-Terry reward model invariant to adding a constant shift `c(x)`
+  per prompt, and why do we often add a small `z-loss` penalty `lambda * (r_c^2 +
+  r_r^2)`?
+reference_solution: "import numpy as np\n\ndef bt_loss(r_chosen, r_rejected) -> list[float]:\n\
+  \    rc = np.asarray(r_chosen, dtype=np.float64)\n    rr = np.asarray(r_rejected,\
+  \ dtype=np.float64)\n    diff = rc - rr\n    loss = float(np.mean(np.logaddexp(0.0,\
+  \ -diff)))\n    acc = float(np.mean(rc > rr))\n    return [loss, acc]\n"

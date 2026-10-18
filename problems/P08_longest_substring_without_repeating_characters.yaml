@@ -1,0 +1,59 @@
+id: P08
+slug: longest-substring-without-repeating-characters
+title: Longest Substring Without Repeating Characters
+leetcode: 3
+day: 1
+pattern:
+- sliding_window
+- hash_map
+difficulty: medium
+post_training_relevance: The canonical variable-length sliding window template used
+  for repetition-free span analysis and context-window token tracking.
+statement: Given a string `s`, find the length of the **longest substring** without
+  repeating characters.
+examples:
+- input: s = "abcabcbb"
+  output: '3'
+- input: s = "bbbbb"
+  output: '1'
+- input: s = "pwwkew"
+  output: '3'
+constraints:
+- 0 <= len(s) <= 5 * 10^4
+function_name: length_of_longest_substring
+starter_code: "def length_of_longest_substring(s: str) -> int:\n    pass\n"
+tests:
+- args:
+  - abcabcbb
+  expected: 3
+- args:
+  - bbbbb
+  expected: 1
+- args:
+  - pwwkew
+  expected: 3
+hidden_tests:
+- args:
+  - ''
+  expected: 0
+- args:
+  - abba
+  expected: 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- Maintain a sliding window `[left, right]` that contains no duplicate characters.
+- Store the most recent index of each character in `last_seen[ch]`.
+- 'Watch out for `"abba"`: when `ch` was seen at `last_seen[ch]`, update `left = max(left,
+  last_seen[ch] + 1)` so `left` never moves backward!'
+optimal:
+  time: O(n)
+  space: O(min(n, alphabet))
+follow_ups:
+- What if we allow at most `k` repeating characters or at most `k` distinct characters
+  in the window?
+reference_solution: "def length_of_longest_substring(s: str) -> int:\n    last_seen\
+  \ = {}\n    left = 0\n    best = 0\n    for right, ch in enumerate(s):\n       \
+  \ if ch in last_seen and last_seen[ch] >= left:\n            left = last_seen[ch]\
+  \ + 1\n        last_seen[ch] = right\n        best = max(best, right - left + 1)\n\
+  \    return best\n"

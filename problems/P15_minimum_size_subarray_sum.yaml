@@ -1,0 +1,78 @@
+id: P15
+slug: minimum-size-subarray-sum
+title: Minimum Size Subarray Sum
+leetcode: 209
+day: 1
+pattern:
+- sliding_window
+- two_pointers
+difficulty: medium
+post_training_relevance: Shrinkable sliding window over positive token lengths or
+  weights.
+statement: Given an array of **positive** integers `nums` and a positive integer `target`,
+  return the minimal length of a contiguous subarray whose sum is greater than or
+  equal to `target`. If there is no such subarray, return `0`.
+examples:
+- input: target = 7, nums = [2,3,1,2,4,3]
+  output: '2'
+- input: target = 11, nums = [1,1,1,1,1,1,1,1]
+  output: '0'
+constraints:
+- 1 <= target <= 10^9
+- 1 <= nums[i] <= 10^4
+function_name: min_subarray_len
+starter_code: "def min_subarray_len(target: int, nums: list[int]) -> int:\n    pass\n"
+tests:
+- args:
+  - 7
+  - - 2
+    - 3
+    - 1
+    - 2
+    - 4
+    - 3
+  expected: 2
+- args:
+  - 4
+  - - 1
+    - 4
+    - 4
+  expected: 1
+- args:
+  - 11
+  - - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+  expected: 0
+hidden_tests:
+- args:
+  - 15
+  - - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  expected: 5
+compare: exact
+time_limit_ms: 2000
+hints:
+- Because all `nums[i] > 0`, adding elements strictly increases the window sum and
+  removing from `left` strictly decreases it.
+- Expand `right`, and while `window_sum >= target`, record `right - left + 1` and
+  shrink `left += 1`.
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- 'What if `nums` can contain negative numbers? (See LeetCode 862: prefix sum + monotonic
+  increasing deque).'
+reference_solution: "def min_subarray_len(target: int, nums: list[int]) -> int:\n\
+  \    left = 0\n    cur = 0\n    best = len(nums) + 1\n    for right, x in enumerate(nums):\n\
+  \        cur += x\n        while cur >= target:\n            best = min(best, right\
+  \ - left + 1)\n            cur -= nums[left]\n            left += 1\n    return\
+  \ 0 if best > len(nums) else best\n"

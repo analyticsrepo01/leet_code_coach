@@ -1,0 +1,43 @@
+id: T05
+slug: attention-kv-cache-flashattention
+title: 'Theory: Attention Complexity, KV Cache Formula & FlashAttention'
+kind: theory
+track: theory
+day: 2
+pattern:
+- systems
+- attention
+- theory
+difficulty: medium
+post_training_relevance: top quant trading quant AI & top labs heavily test GPU memory hierarchy
+  (HBM vs SRAM) and exact KV-cache byte arithmetic.
+statement: 'Answer three systems/architecture questions out loud:
+
+  1. Give the exact **KV cache memory formula in bytes** for batch size $B$, sequence
+  length $S$, layers $L$, KV heads $H_{kv}$, head dimension $d_h$, and precision $b$
+  bytes per element.
+
+  2. Contrast **MHA**, **GQA**, and **MQA** on KV-cache size and inference arithmetic
+  intensity ( roofline model).
+
+  3. Explain how **FlashAttention** achieves $O(N)$ HBM memory instead of $O(N^2)$
+  using SRAM tiling and online softmax.'
+hints:
+- 'Remember the factor of `2` for Key + Value: `2 * B * S * L * H_kv * d_h * bytes_per_elem`.'
+rubric_points:
+- 'States exact KV cache formula: 2 * B * S * L * H_kv * d_h * bytes_per_param.'
+- Explains GQA reduces KV cache and HBM bandwidth by factor H_q / H_kv during memory-bound
+  autoregressive decoding.
+- Explains FlashAttention tiles Q, K, V in fast on-chip SRAM and rescales running
+  max m and denominator l via online softmax without writing the N x N matrix to HBM.
+follow_ups:
+- During flash attention backward pass, how does it avoid storing the N x N attention
+  matrix? (Recomputes from Q, K, V tiles using saved logsumexp `L`).
+reference_solution: '1. KV cache bytes = 2 (K and V) * B * S * L * H_kv * d_h * bytes_per_dtype.
+
+  2. Autoregressive decoding is memory-bandwidth bound on HBM; GQA shares KV heads
+  across groups of Q heads, cutting KV cache size and HBM reads by H_q/H_kv.
+
+  3. FlashAttention tiles K, V into GPU SRAM, maintaining running row max m_i and
+  normalizer l_i (online softmax) to update output O_i in SRAM without ever materializing
+  the N x N matrix in HBM.'

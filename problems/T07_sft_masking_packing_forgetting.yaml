@@ -1,0 +1,44 @@
+id: T07
+slug: sft-masking-packing-forgetting
+title: 'Theory: SFT Loss Masking, Document Packing & Catastrophic Forgetting'
+kind: theory
+track: theory
+day: 2
+pattern:
+- masking
+- theory
+difficulty: easy
+post_training_relevance: Core SFT pipeline hygiene tested in post-training interviews.
+statement: 'Explain key engineering details of **Supervised Fine-Tuning (SFT)**:
+
+  1. Why do we mask out user prompt tokens (setting labels to `-100`) in multi-turn
+  chat SFT?
+
+  2. When packing multiple short documents into one sequence without padding, what
+  happens if you use a standard lower-triangular causal mask instead of a block-diagonal
+  document mask?
+
+  3. What causes **catastrophic forgetting** during SFT and how do replay mixtures,
+  LoRA, or KL regularization mitigate it?'
+hints:
+- Consider cross-contamination between packed documents and Resetting position_ids
+  at document boundaries.
+rubric_points:
+- Explains prompt-token loss masking (`ignore_index=-100`) and multi-turn assistant-only
+  spans.
+- Explains block-diagonal causal attention masks (`cu_seqlens` in FlashAttention varlen)
+  + resetting RoPE position IDs per packed sample.
+- Discusses replay data mixing and learning-rate / weight-decay control to prevent
+  catastrophic forgetting.
+follow_ups:
+- What is the difference between sample-averaged loss vs token-averaged loss across
+  a microbatch?
+reference_solution: '1. Masking prompt tokens prevents wasting capacity modeling user
+  queries and prevents memorizing boilerplate system prompts.
+
+  2. Without a block-diagonal mask (e.g. flash_attn_varlen_func with cu_seqlens) and
+  reset position_ids, later packed examples attend to earlier unrelated examples and
+  get shifted RoPE positions.
+
+  3. Mixing 5-10% pretraining/replay data and using small LR prevents overwriting
+  base capabilities.'

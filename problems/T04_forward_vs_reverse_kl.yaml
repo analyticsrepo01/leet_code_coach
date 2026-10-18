@@ -1,0 +1,39 @@
+id: T04
+slug: forward-vs-reverse-kl
+title: 'Theory: Forward KL vs. Reverse KL in Post-Training'
+kind: theory
+track: theory
+day: 2
+pattern:
+- numerics
+- rlhf
+- theory
+difficulty: medium
+post_training_relevance: Fundamental probabilistic distinction between SFT (maximum
+  likelihood) and RLHF (mode-seeking KL penalty).
+statement: 'Contrast **Forward KL** $D_{\text{KL}}(P \| Q) = \mathbb{E}_{x \sim P}[\log(P(x)/Q(x))]$
+  and **Reverse KL** $D_{\text{KL}}(Q \| P) = \mathbb{E}_{x \sim Q}[\log(Q(x)/P(x))]$
+  where $P$ is the target distribution and $Q_\theta$ is our learned model:
+
+
+  1. Which one is **mean-seeking (zero-avoiding)** and which is **mode-seeking (zero-forcing)**,
+  and why?
+
+  2. Why is SFT equivalent to minimizing Forward KL while RLHF''s KL penalty minimizes
+  Reverse KL?'
+hints:
+- Check what happens when $P(x) > 0$ and $Q_\theta(x) \to 0$ in Forward KL vs when
+  $P(x) = 0$ and $Q_\theta(x) > 0$ in Reverse KL.
+rubric_points:
+- Shows Forward KL blows up if Q(x)->0 where P(x)>0 (mass-covering / mean-seeking),
+  equivalent to SFT cross-entropy.
+- Shows Reverse KL forces Q(x)=0 wherever P(x)=0 (mode-seeking / zero-forcing), matching
+  RLHF's expectation under Q_theta.
+- Connects mode-seeking behavior to reduced diversity / sharper generation after RLHF.
+follow_ups:
+- In knowledge distillation (teacher P, student Q), when would you prefer Reverse
+  KL or Jensen-Shannon divergence over Forward KL?
+reference_solution: Forward KL D(P||Q) takes expectation under P; if P(x)>0 and Q(x)->0,
+  log(P/Q)->inf, forcing Q to cover all support of P (mass-covering, SFT MLE). Reverse
+  KL D(Q||P) takes expectation under Q; if P(x)->0, Q(x) must be 0 to avoid infinite
+  penalty, so Q locks onto a single high-probability mode of P (mode-seeking, RLHF).

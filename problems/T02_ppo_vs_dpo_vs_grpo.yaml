@@ -1,0 +1,43 @@
+id: T02
+slug: ppo-vs-dpo-vs-grpo
+title: 'Theory: PPO vs. DPO vs. GRPO Trade-offs'
+kind: theory
+track: theory
+day: 2
+pattern:
+- rlhf
+- ppo
+- dpo
+- grpo
+- theory
+difficulty: medium
+post_training_relevance: Tests practical architectural understanding of memory footprint,
+  models in GPU HBM, and online vs. offline exploration.
+statement: 'Compare **PPO**, **DPO**, and **GRPO** across:
+
+  1. Models held in memory during training (Policy, Reference, Reward Model / Verifier,
+  Value Critic).
+
+  2. Online vs. offline data regime and exploration capability.
+
+  3. Variance reduction mechanism (GAE critic vs. pairwise contrast vs. group-relative
+  baseline).
+
+  4. When you would choose each (e.g. verifiable math/code vs. open-ended chat alignment).'
+hints:
+- PPO needs 4 models in memory (Actor, Critic, Reference, Reward); GRPO drops the
+  Critic (saves ~50% trainable state) by sampling G rollouts per prompt; DPO needs
+  only Actor + Reference (or precomputed ref logprobs).
+rubric_points:
+- 'Contrasts memory footprint: PPO (4 models) vs GRPO (no critic, G rollouts/prompt)
+  vs DPO (offline, 2 models or cached ref).'
+- Explains online exploration advantage of PPO/GRPO over offline DPO.
+- Identifies GRPO + rule-based verifiers (RLVR) as ideal for math/code reasoning.
+follow_ups:
+- In GRPO, what is the compute vs. memory trade-off of increasing group size G from
+  4 to 64?
+reference_solution: PPO uses an online actor, value critic (GAE), reference policy,
+  and reward model. DPO is offline supervised preference learning requiring only policy
+  + reference log-probs, making it cheap and stable but prone to distribution shift.
+  GRPO eliminates the value critic by sampling G rollouts per prompt and normalizing
+  rewards within the group, pairing naturally with programmatic verifiers (RLVR).

@@ -1,0 +1,95 @@
+id: M02
+slug: masked-per-token-logprobs
+title: Masked Per-Token & Sequence Log-Probabilities
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+- masking
+difficulty: medium
+post_training_relevance: Computing log pi(y|x) with prompt and padding tokens masked
+  out is the core primitive of SFT, DPO, PPO, and GRPO.
+statement: 'Given already-aligned `logits` of shape `(B, T, V)`, integer target `labels`
+  of shape `(B, T)` (`0 <= label < V`), and binary `mask` of shape `(B, T)` (`1` for
+  response tokens, `0` for prompt/padding tokens):
+
+
+  Return `[per_token_logp, seq_logp]` where:
+
+  - `per_token_logp` has shape `(B, T)` and equals the masked token log-probabilities
+  (`0.0` where `mask == 0`).
+
+  - `seq_logp` has shape `(B,)` and equals the sum of masked token log-probabilities
+  per sequence.'
+examples:
+- input: logits = [[[0.0, 0.0], [1.0, 2.0]]], labels = [[0, 1]], mask = [[0, 1]]
+  output: '[[[0.0, -0.313262]], [-0.313262]]'
+constraints:
+- 1 <= B, T <= 64
+- 2 <= V <= 1024
+function_name: token_logprobs
+starter_code: "import numpy as np\n\ndef token_logprobs(logits, labels, mask):\n \
+  \   logits = np.asarray(logits, dtype=np.float64)\n    labels = np.asarray(labels,\
+  \ dtype=np.int64)\n    mask = np.asarray(mask, dtype=np.float64)\n    # Return [per_token_logp.tolist(),\
+  \ seq_logp.tolist()]\n    pass\n"
+tests:
+- args:
+  - - - - 0.0
+        - 0.0
+      - - 1.0
+        - 2.0
+  - - - 0
+      - 1
+  - - - 0
+      - 1
+  expected:
+  - - - 0.0
+      - -0.31326168751822286
+  - - -0.31326168751822286
+hidden_tests:
+- args:
+  - - - - 2.0
+        - 0.0
+      - - 0.0
+        - 2.0
+    - - - 0.0
+        - 0.0
+      - - 0.0
+        - 0.0
+  - - - 0
+      - 1
+    - - 1
+      - 0
+  - - - 1
+      - 1
+    - - 1
+      - 0
+  expected:
+  - - - -0.1269280110429726
+      - -0.1269280110429726
+    - - -0.6931471805599453
+      - 0.0
+  - - -0.2538560220859452
+    - -0.6931471805599453
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- First compute stable `log_probs = logits - max - log(sum(exp(...)))` along `axis=-1`.
+- Use `np.take_along_axis(log_probs, labels[..., None], axis=-1).squeeze(-1)` to gather
+  the target token log-probs.
+- Multiply by `mask` to zero out prompt/padding positions, then sum over `axis=-1`
+  for `seq_logp`.
+optimal:
+  time: O(B * T * V)
+  space: O(B * T)
+follow_ups:
+- In causal LM training where `input_ids` has length `L`, how do you shift `logits`
+  and `labels` before calling this function? (`logits[:, :-1]` vs `input_ids[:, 1:]`).
+reference_solution: "import numpy as np\n\ndef token_logprobs(logits, labels, mask):\n\
+  \    logits = np.asarray(logits, dtype=np.float64)\n    labels = np.asarray(labels,\
+  \ dtype=np.int64)\n    mask = np.asarray(mask, dtype=np.float64)\n    m = np.max(logits,\
+  \ axis=-1, keepdims=True)\n    shifted = logits - m\n    log_probs = shifted - np.log(np.sum(np.exp(shifted),\
+  \ axis=-1, keepdims=True))\n    gathered = np.take_along_axis(log_probs, labels[...,\
+  \ None], axis=-1).squeeze(-1)\n    per_token = gathered * mask\n    seq_sum = np.sum(per_token,\
+  \ axis=-1)\n    return [per_token.tolist(), seq_sum.tolist()]\n"

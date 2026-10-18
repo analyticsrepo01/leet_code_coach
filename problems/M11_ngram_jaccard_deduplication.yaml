@@ -1,0 +1,76 @@
+id: M11
+slug: ngram-jaccard-deduplication
+title: Near-Duplicate Detection via Character N-Gram Jaccard
+leetcode: null
+day: 2
+pattern:
+- hash_map
+difficulty: medium
+post_training_relevance: Near-deduplication of SFT/pretraining corpora prevents memorization
+  and benchmark contamination.
+statement: 'Given a list of document strings `docs`, character n-gram size `n: int
+  = 3`, and similarity `threshold: float = 0.8`, greedily deduplicate the corpus in
+  order `0 .. len(docs)-1`:
+
+
+  - Represent each document `s` by its set of contiguous character substrings of length
+  `n` (if `len(s) < n`, use `{s}`).
+
+  - Define Jaccard similarity $J(A, B) = |A \cap B| / |A \cup B|$ (or `1.0` if both
+  sets are empty).
+
+  - Keep document `i` if and only if its Jaccard similarity with **every previously
+  kept** document is strictly `< threshold`.
+
+
+  Return the sorted list of kept document indices.'
+examples:
+- input: docs = ["hello world", "hello world!", "completely different"], n = 3, threshold
+    = 0.75
+  output: '[0, 2]'
+constraints:
+- 1 <= len(docs) <= 500
+function_name: dedup_docs
+starter_code: "def dedup_docs(docs: list[str], n: int = 3, threshold: float = 0.8)\
+  \ -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - hello world
+    - hello world!
+    - completely different
+  - 3
+  - 0.75
+  expected:
+  - 0
+  - 2
+hidden_tests:
+- args:
+  - - abc
+    - abc
+    - xyz
+  - 3
+  - 0.8
+  expected:
+  - 0
+  - 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- Precompute the n-gram `set` for each document once before the pairwise loop.
+- For candidate doc `i`, check `len(shingles[i] & shingles[j]) / len(shingles[i] |
+  shingles[j]) >= threshold` against all `j` in `kept`.
+optimal:
+  time: O(N^2 * L)
+  space: O(N * L)
+follow_ups:
+- How do MinHash + Locality Sensitive Hashing (LSH) scale this from O(N^2) to O(N)
+  over 100M documents?
+reference_solution: "def dedup_docs(docs: list[str], n: int = 3, threshold: float\
+  \ = 0.8) -> list[int]:\n    def get_shingles(s: str) -> set[str]:\n        if len(s)\
+  \ < n:\n            return {s}\n        return {s[i:i+n] for i in range(len(s) -\
+  \ n + 1)}\n\n    shingles = [get_shingles(d) for d in docs]\n    kept = []\n   \
+  \ for i, sh in enumerate(shingles):\n        is_dup = False\n        for j in kept:\n\
+  \            union = len(sh | shingles[j])\n            sim = 1.0 if union == 0\
+  \ else len(sh & shingles[j]) / union\n            if sim >= threshold:\n       \
+  \         is_dup = True\n                break\n        if not is_dup:\n       \
+  \     kept.append(i)\n    return kept\n"

@@ -1,0 +1,12 @@
+.git
+.gitignore
+private/
+frontend/node_modules
+frontend/dist
+backend/.venv
+backend/static
+__pycache__
+*.pyc
+*.log
+.env
+.env.*

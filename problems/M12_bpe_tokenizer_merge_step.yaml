@@ -1,0 +1,88 @@
+id: M12
+slug: bpe-tokenizer-merge-step
+title: Byte-Pair Encoding (BPE) Tokenizer Merge Loop
+leetcode: null
+day: 2
+pattern:
+- hash_map
+- heap
+difficulty: medium
+post_training_relevance: Tests understanding of subword tokenization (BPE) and frequency
+  aggregation.
+statement: 'Given a dictionary `word_freqs` mapping space-separated symbol sequences
+  (e.g. `"l o w": 5`) to their corpus counts, and `num_merges: int`, run `num_merges`
+  steps of BPE:
+
+
+  At each step:
+
+  1. Count weighted frequencies of all adjacent symbol pairs `(a, b)` across all words.
+
+  2. Pick the pair with the **highest total frequency** (break ties by lexicographically
+  **smallest** pair `(a, b)`).
+
+  3. Merge all non-overlapping occurrences of `(a, b)` left-to-right into `a + b`
+  in every word.
+
+
+  Return the list of merged pairs `[[a, b], ...]` in order.'
+examples:
+- input: 'word_freqs = {"l o w": 5, "l o w e r": 2, "n e w e s t": 6, "w i d e s t":
+    3}, num_merges = 3'
+  output: '[["e", "s"], ["es", "t"], ["l", "o"]]'
+constraints:
+- 1 <= num_merges <= 50
+function_name: bpe_train
+starter_code: "from collections import Counter\n\ndef bpe_train(word_freqs: dict[str,\
+  \ int], num_merges: int) -> list[list[str]]:\n    pass\n"
+tests:
+- args:
+  - l o w: 5
+    l o w e r: 2
+    n e w e s t: 6
+    w i d e s t: 3
+  - 3
+  expected:
+  - - e
+    - s
+  - - es
+    - t
+  - - l
+    - o
+hidden_tests:
+- args:
+  - a b a: 4
+  - 2
+  expected:
+  - - a
+    - b
+  - - ab
+    - a
+compare: exact
+time_limit_ms: 2000
+hints:
+- Represent each word as a `list[str]` of tokens by splitting on spaces.
+- In each step, accumulate `pair_counts[(tokens[i], tokens[i+1])] += freq`. If `pair_counts`
+  is empty, stop early.
+- 'Pick `best_pair = min(pair_counts, key=lambda p: (-pair_counts[p], p))`.'
+optimal:
+  time: O(M * W * L)
+  space: O(W * L)
+follow_ups:
+- How do production BPE trainers (like `tokenizers` / `tiktoken`) avoid rescanning
+  the entire corpus on every merge? (Doubly linked list per word + max-heap of pair
+  counts with lazy invalidation).
+reference_solution: "from collections import Counter\n\ndef bpe_train(word_freqs:\
+  \ dict[str, int], num_merges: int) -> list[list[str]]:\n    corpus = [(w.split(),\
+  \ freq) for w, freq in word_freqs.items()]\n    merges = []\n    for _ in range(num_merges):\n\
+  \        pair_counts = Counter()\n        for tokens, freq in corpus:\n        \
+  \    for i in range(len(tokens) - 1):\n                pair_counts[(tokens[i], tokens[i\
+  \ + 1])] += freq\n        if not pair_counts:\n            break\n        best =\
+  \ min(pair_counts, key=lambda p: (-pair_counts[p], p))\n        merges.append([best[0],\
+  \ best[1]])\n        merged_tok = best[0] + best[1]\n        new_corpus = []\n \
+  \       for tokens, freq in corpus:\n            new_tokens = []\n            i\
+  \ = 0\n            while i < len(tokens):\n                if i + 1 < len(tokens)\
+  \ and tokens[i] == best[0] and tokens[i + 1] == best[1]:\n                    new_tokens.append(merged_tok)\n\
+  \                    i += 2\n                else:\n                    new_tokens.append(tokens[i])\n\
+  \                    i += 1\n            new_corpus.append((new_tokens, freq))\n\
+  \        corpus = new_corpus\n    return merges\n"

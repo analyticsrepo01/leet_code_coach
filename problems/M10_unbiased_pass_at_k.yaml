@@ -1,0 +1,74 @@
+id: M10
+slug: unbiased-pass-at-k
+title: Unbiased pass@k Estimator (Chen et al. Codex)
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+difficulty: easy
+post_training_relevance: Standard evaluation metric for code & math RLVR models (HumanEval,
+  SWE-bench, AIME).
+statement: 'Given `n` total generated rollouts for a problem, `c` correct rollouts
+  (`0 <= c <= n`), and `k` (`1 <= k <= n`), compute the **unbiased pass@k estimator**:
+
+
+  $$\text{pass@}k = 1 - \frac{\binom{n - c}{k}}{\binom{n}{k}} = 1 - \prod_{i=n-c+1}^{n}
+  \left(1 - \frac{k}{i}\right)$$
+
+
+  If `n - c < k`, return `1.0`.'
+examples:
+- input: n = 10, c = 2, k = 1
+  output: '0.2'
+- input: n = 10, c = 2, k = 5
+  output: '0.777778'
+constraints:
+- 1 <= k <= n <= 10^5
+- 0 <= c <= n
+function_name: pass_at_k
+starter_code: "import numpy as np\n\ndef pass_at_k(n: int, c: int, k: int) -> float:\n\
+  \    pass\n"
+tests:
+- args:
+  - 10
+  - 2
+  - 1
+  expected: 0.2
+- args:
+  - 10
+  - 2
+  - 5
+  expected: 0.7777777777777778
+- args:
+  - 10
+  - 9
+  - 5
+  expected: 1.0
+hidden_tests:
+- args:
+  - 100
+  - 0
+  - 10
+  expected: 0.0
+- args:
+  - 1000
+  - 50
+  - 10
+  expected: 0.4026966541227702
+compare: float_tol
+time_limit_ms: 2000
+hints:
+- Why not compute `math.comb(n - c, k) / math.comb(n, k)` directly in float? For large
+  `n` and `k`, binomial coefficients overflow float64.
+- If `n - c < k`, every subset of size `k` contains at least one correct sample, so
+  return `1.0`.
+- Otherwise return `float(1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))`.
+optimal:
+  time: O(c)
+  space: O(c)
+follow_ups:
+- Why is `1 - (1 - c/n)^k` a biased estimator of pass@k when `n` is small?
+reference_solution: "import numpy as np\n\ndef pass_at_k(n: int, c: int, k: int) ->\
+  \ float:\n    if n - c < k:\n        return 1.0\n    if c == 0:\n        return\
+  \ 0.0\n    return float(1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1, dtype=np.float64)))\n"

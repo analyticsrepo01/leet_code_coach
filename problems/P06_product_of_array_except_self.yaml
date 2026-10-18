@@ -1,0 +1,81 @@
+id: P06
+slug: product-of-array-except-self
+title: Product of Array Except Self
+leetcode: 238
+day: 1
+pattern:
+- prefix_sum
+difficulty: medium
+post_training_relevance: Bidirectional prefix/suffix scans without division are analogous
+  to forward-backward message passing and bidirectional cumulative masks.
+statement: 'Given an integer array `nums`, return an array `answer` such that `answer[i]`
+  is equal to the product of all the elements of `nums` except `nums[i]`.
+
+
+  You must write an algorithm that runs in `O(n)` time and **without using the division
+  operation**.'
+examples:
+- input: nums = [1, 2, 3, 4]
+  output: '[24, 12, 8, 6]'
+- input: nums = [-1, 1, 0, -3, 3]
+  output: '[0, 0, 9, 0, 0]'
+constraints:
+- 2 <= len(nums) <= 10^5
+- -30 <= nums[i] <= 30
+function_name: product_except_self
+starter_code: "def product_except_self(nums: list[int]) -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 2
+    - 3
+    - 4
+  expected:
+  - 24
+  - 12
+  - 8
+  - 6
+- args:
+  - - -1
+    - 1
+    - 0
+    - -3
+    - 3
+  expected:
+  - 0
+  - 0
+  - 9
+  - 0
+  - 0
+hidden_tests:
+- args:
+  - - 0
+    - 0
+  expected:
+  - 0
+  - 0
+- args:
+  - - 2
+    - 3
+    - 5
+  expected:
+  - 15
+  - 10
+  - 6
+compare: exact
+time_limit_ms: 2000
+hints:
+- Why does `total_product // nums[i]` fail even if division were allowed? (Zeroes!)
+- Each `answer[i]` is `(product of nums[:i]) * (product of nums[i+1:])`.
+- Fill `answer` with prefix products on a left-to-right pass, then multiply by a running
+  suffix scalar on a right-to-left pass.
+optimal:
+  time: O(n)
+  space: O(1) extra
+follow_ups:
+- How would you parallelize prefix/suffix scans on a GPU (Blelloch scan)?
+reference_solution: "def product_except_self(nums: list[int]) -> list[int]:\n    n\
+  \ = len(nums)\n    ans = [1] * n\n    prefix = 1\n    for i in range(n):\n     \
+  \   ans[i] = prefix\n        prefix *= nums[i]\n    suffix = 1\n    for i in range(n\
+  \ - 1, -1, -1):\n        ans[i] *= suffix\n        suffix *= nums[i]\n    return\
+  \ ans\n"

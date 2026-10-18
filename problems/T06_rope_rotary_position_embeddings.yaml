@@ -1,0 +1,38 @@
+id: T06
+slug: rope-rotary-position-embeddings
+title: 'Theory: Rotary Position Embeddings (RoPE) & Relative Distance'
+kind: theory
+track: theory
+day: 2
+pattern:
+- attention
+- theory
+difficulty: medium
+post_training_relevance: Directly listed in reported top quant trading quant AI LLM research screen
+  questions.
+statement: 'Explain **Rotary Position Embeddings (RoPE)** mathematically:
+
+  1. How does RoPE transform a 2D pair of query/key coordinates $(x_1, x_2)$ at position
+  $m$ with frequency $\theta_d$?
+
+  2. Prove why the inner product $\langle R_m q, R_n k \rangle$ depends **only on
+  the relative distance $m - n$**.
+
+  3. Why do low-frequency vs high-frequency dimensions behave differently when extending
+  context length (NTK-aware scaling / YaRN)?'
+hints:
+- Use $R_m^T R_n = R_{n - m}$ because orthogonal 2D rotation matrices satisfy $R(\alpha)^T
+  R(\beta) = R(\beta - \alpha)$.
+rubric_points:
+- Writes 2x2 rotation matrix R(m * theta_d) applied to pairs of dimensions in Q and
+  K (not V).
+- Shows (R_m q)^T (R_n k) = q^T R_m^T R_n k = q^T R_{n-m} k, encoding relative position
+  m - n directly in dot-product attention.
+- Explains wavelength 2*pi / theta_d and why high-frequency vs low-frequency bands
+  are scaled differently in YaRN / NTK scaling.
+follow_ups:
+- Why is RoPE applied only to Q and K, not V?
+reference_solution: RoPE partitions d_head into d/2 2D planes and rotates plane j
+  at token position m by angle m * theta_j where theta_j = base^(-2j/d). Because 2D
+  rotation matrices are orthogonal and additive, (R_m q)^T (R_n k) = q^T R(n*theta
+  - m*theta) k, which is purely a function of relative offset (m - n).

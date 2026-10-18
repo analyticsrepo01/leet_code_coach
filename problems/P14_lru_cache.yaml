@@ -1,0 +1,103 @@
+id: P14
+slug: lru-cache
+title: LRU Cache (Prefix / KV Cache Eviction)
+leetcode: 146
+day: 1
+pattern:
+- hash_map
+difficulty: medium
+post_training_relevance: Directly models vLLM/SGLang prefix KV-cache block eviction
+  under Least-Recently-Used policy.
+statement: 'Simulate an LRU Cache of given `capacity` over a sequence of operations
+  `ops`.
+
+  Each op is either `["get", key]` (appends the returned value or `-1` to output)
+  or `["put", key, value]` (appends `None` to output). Both `get` and `put` mark `key`
+  as most-recently used.'
+examples:
+- input: capacity = 2, ops = [["put",1,1],["put",2,2],["get",1],["put",3,3],["get",2],["put",4,4],["get",1],["get",3],["get",4]]
+  output: '[None, None, 1, None, -1, None, -1, 3, 4]'
+constraints:
+- 1 <= capacity <= 3000
+function_name: run_lru_cache
+starter_code: "from collections import OrderedDict\n\ndef run_lru_cache(capacity:\
+  \ int, ops: list[list]) -> list:\n    pass\n"
+tests:
+- args:
+  - 2
+  - - - put
+      - 1
+      - 1
+    - - put
+      - 2
+      - 2
+    - - get
+      - 1
+    - - put
+      - 3
+      - 3
+    - - get
+      - 2
+    - - put
+      - 4
+      - 4
+    - - get
+      - 1
+    - - get
+      - 3
+    - - get
+      - 4
+  expected:
+  - null
+  - null
+  - 1
+  - null
+  - -1
+  - null
+  - -1
+  - 3
+  - 4
+hidden_tests:
+- args:
+  - 1
+  - - - put
+      - 2
+      - 1
+    - - get
+      - 2
+    - - put
+      - 3
+      - 2
+    - - get
+      - 2
+    - - get
+      - 3
+  expected:
+  - null
+  - 1
+  - null
+  - -1
+  - 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- In Python, `collections.OrderedDict` (or a dict + doubly linked list) supports O(1)
+  `move_to_end(key)` and `popitem(last=False)`.
+- Be prepared to explain how `OrderedDict` is implemented under the hood (hash map
+  of nodes in a doubly-linked list).
+optimal:
+  time: O(1) per op
+  space: O(capacity)
+follow_ups:
+- How would you implement this without `OrderedDict` using a custom `Node` class with
+  `prev` and `next` pointers?
+- In LLM prefix caching (RadixAttention), why do we evict leaf nodes of a radix tree
+  in LRU order?
+reference_solution: "from collections import OrderedDict\n\ndef run_lru_cache(capacity:\
+  \ int, ops: list[list]) -> list:\n    cache = OrderedDict()\n    out = []\n    for\
+  \ op in ops:\n        if op[0] == 'get':\n            k = op[1]\n            if\
+  \ k not in cache:\n                out.append(-1)\n            else:\n         \
+  \       cache.move_to_end(k)\n                out.append(cache[k])\n        else:\n\
+  \            k, v = op[1], op[2]\n            if k in cache:\n                cache.move_to_end(k)\n\
+  \            cache[k] = v\n            if len(cache) > capacity:\n             \
+  \   cache.popitem(last=False)\n            out.append(None)\n    return out\n"

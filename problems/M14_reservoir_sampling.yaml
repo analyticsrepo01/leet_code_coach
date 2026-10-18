@@ -1,0 +1,73 @@
+id: M14
+slug: reservoir-sampling
+title: Reservoir Sampling (Algorithm R)
+leetcode: 382
+day: 2
+pattern:
+- streaming
+difficulty: easy
+post_training_relevance: Classic quant & ML streaming algorithm for maintaining a
+  uniform random sample of size k from an unknown-length stream in O(k) memory.
+statement: 'Implement **Algorithm R (Reservoir Sampling)** deterministically given
+  a `stream` of items, reservoir size `k`, and a pre-generated list `rand_ints` where
+  `rand_ints[i - k]` is the random integer `j` in `[0, i]` used when processing stream
+  index `i >= k`.
+
+
+  - Fill `reservoir = stream[:k]`.
+
+  - For each `i` from `k` to `len(stream) - 1`, let `j = rand_ints[i - k]`. If `j
+  < k`, set `reservoir[j] = stream[i]`.
+
+  - Return `reservoir`.'
+examples:
+- input: stream = [10, 20, 30, 40, 50], k = 2, rand_ints = [1, 3, 0]
+  output: '[50, 30]'
+constraints:
+- 1 <= k <= len(stream) <= 10^5
+function_name: reservoir_sample
+starter_code: "def reservoir_sample(stream: list[int], k: int, rand_ints: list[int])\
+  \ -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - 10
+    - 20
+    - 30
+    - 40
+    - 50
+  - 2
+  - - 1
+    - 3
+    - 0
+  expected:
+  - 50
+  - 30
+hidden_tests:
+- args:
+  - - 1
+    - 2
+    - 3
+    - 4
+  - 3
+  - - 2
+  expected:
+  - 1
+  - 2
+  - 4
+compare: exact
+time_limit_ms: 2000
+hints:
+- Prove by induction on `n >= k` that after step `n - 1` (0-indexed `i`), every seen
+  item is in the reservoir with probability `k / n`.
+- When item `i` (the `(i+1)`-th item) arrives, include it with probability `k / (i
+  + 1)` by picking `j in [0, i]` and replacing `reservoir[j]` if `j < k`.
+optimal:
+  time: O(n)
+  space: O(k)
+follow_ups:
+- How do you do weighted reservoir sampling (Efraimidis-Spirakis algorithm using `u_i
+  ** (1 / w_i)` keys in a min-heap)?
+reference_solution: "def reservoir_sample(stream: list[int], k: int, rand_ints: list[int])\
+  \ -> list[int]:\n    res = list(stream[:k])\n    for i in range(k, len(stream)):\n\
+  \        j = rand_ints[i - k]\n        if j < k:\n            res[j] = stream[i]\n\
+  \    return res\n"

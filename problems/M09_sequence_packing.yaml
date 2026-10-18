@@ -1,0 +1,89 @@
+id: M09
+slug: sequence-packing
+title: SFT Sequence Packing (First-Fit Decreasing)
+leetcode: null
+day: 2
+pattern:
+- heap
+- greedy
+difficulty: medium
+post_training_relevance: Packing variable-length SFT/pretraining sequences into `max_seq_len`
+  bins eliminates padding waste and maximizes GPU token throughput.
+statement: 'Given a list of sequence token `lengths` (each `1 <= length <= max_len`)
+  and integer `max_len`, pack the sequences using **First-Fit Decreasing (FFD)**:
+
+
+  1. Sort `lengths` in **descending** order.
+
+  2. Place each length into the **first existing bin** that has enough remaining capacity
+  (`remaining >= length`), or open a new bin if none fits.
+
+
+  Return `[bins, efficiency]` where `bins` is the list of bins (each a list of lengths)
+  and `efficiency = round(sum(lengths) / (len(bins) * max_len), 6)`.'
+examples:
+- input: lengths = [4, 8, 1, 4, 2, 1], max_len = 10
+  output: '[[[8, 2], [4, 4, 1, 1]], 1.0]'
+constraints:
+- 1 <= len(lengths) <= 10^4
+- 1 <= lengths[i] <= max_len
+function_name: pack_sequences
+starter_code: "def pack_sequences(lengths: list[int], max_len: int) -> list:\n   \
+  \ # Return [bins, round(efficiency, 6)]\n    pass\n"
+tests:
+- args:
+  - - 4
+    - 8
+    - 1
+    - 4
+    - 2
+    - 1
+  - 10
+  expected:
+  - - - 8
+      - 2
+    - - 4
+      - 4
+      - 1
+      - 1
+  - 1.0
+- args:
+  - - 6
+    - 6
+    - 5
+    - 5
+  - 10
+  expected:
+  - - - 6
+    - - 6
+    - - 5
+      - 5
+  - 0.733333
+hidden_tests:
+- args:
+  - - 10
+  - 10
+  expected:
+  - - - 10
+  - 1.0
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'Sort `lengths` in descending order: `sorted(lengths, reverse=True)`.'
+- For each length `L`, scan existing bins for the first bin with `used + L <= max_len`;
+  if found, append `L`, else create `[L]`.
+optimal:
+  time: O(n^2) or O(n log n) with segment tree
+  space: O(n)
+follow_ups:
+- When we pack multiple SFT examples into a single context window, how must we modify
+  the causal attention mask and RoPE position IDs so examples don't attend to each
+  other?
+reference_solution: "def pack_sequences(lengths: list[int], max_len: int) -> list:\n\
+  \    items = sorted(lengths, reverse=True)\n    bins = []\n    used = []\n    for\
+  \ x in items:\n        placed = False\n        for i in range(len(bins)):\n    \
+  \        if used[i] + x <= max_len:\n                bins[i].append(x)\n       \
+  \         used[i] += x\n                placed = True\n                break\n \
+  \       if not placed:\n            bins.append([x])\n            used.append(x)\n\
+  \    eff = round(sum(lengths) / (len(bins) * max_len), 6) if bins else 0.0\n   \
+  \ return [bins, eff]\n"

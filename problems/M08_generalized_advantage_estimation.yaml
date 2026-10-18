@@ -1,0 +1,81 @@
+id: M08
+slug: generalized-advantage-estimation
+title: Generalized Advantage Estimation (GAE)
+leetcode: null
+day: 2
+pattern:
+- prefix_sum
+- numpy
+difficulty: medium
+post_training_relevance: GAE balances bias and variance in token-level RLHF PPO critics
+  via a reverse exponential scan.
+statement: 'Given 1D arrays `rewards` of length `T` and `values` of length `T + 1`
+  (where `values[T]` is the bootstrap value of the terminal state), plus discount
+  `gamma: float` and GAE parameter `lam: float`, compute `[advantages, returns]` each
+  of length `T`:
+
+
+  $$\delta_t = r_t + \gamma V_{t+1} - V_t$$
+
+  $$A_t = \delta_t + (\gamma \lambda) A_{t+1}, \quad A_T = 0$$
+
+  $$R_t = A_t + V_t$$'
+examples:
+- input: rewards = [1.0, 2.0], values = [0.5, 1.0, 0.0], gamma = 0.99, lam = 0.95
+  output: '[[2.4305, 1.0], [2.9305, 2.0]]'
+constraints:
+- 1 <= T <= 10^5
+function_name: compute_gae
+starter_code: "import numpy as np\n\ndef compute_gae(rewards, values, gamma: float,\
+  \ lam: float):\n    # Return [advantages.tolist(), returns.tolist()]\n    pass\n"
+tests:
+- args:
+  - - 1.0
+    - 2.0
+  - - 0.5
+    - 1.0
+    - 0.0
+  - 0.99
+  - 0.95
+  expected:
+  - - 2.4305
+    - 1.0
+  - - 2.9305
+    - 2.0
+hidden_tests:
+- args:
+  - - 0.0
+    - 0.0
+    - 1.0
+  - - 0.2
+    - 0.4
+    - 0.6
+    - 0.0
+  - 1.0
+  - 1.0
+  expected:
+  - - 0.8
+    - 0.6
+    - 0.4
+  - - 1.0
+    - 1.0
+    - 1.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Compute TD residuals `deltas = rewards + gamma * values[1:] - values[:-1]`.
+- Scan backward from `t = T - 1` down to `0` maintaining `last_gae = deltas[t] + gamma
+  * lam * last_gae`.
+- Finally `returns = advantages + values[:-1]`.
+optimal:
+  time: O(T)
+  space: O(T)
+follow_ups:
+- What do `lam = 0` and `lam = 1` correspond to in terms of TD(0) vs Monte Carlo returns?
+reference_solution: "import numpy as np\n\ndef compute_gae(rewards, values, gamma:\
+  \ float, lam: float):\n    rewards = np.asarray(rewards, dtype=np.float64)\n   \
+  \ values = np.asarray(values, dtype=np.float64)\n    t_len = len(rewards)\n    adv\
+  \ = np.zeros(t_len, dtype=np.float64)\n    last_gae = 0.0\n    for t in range(t_len\
+  \ - 1, -1, -1):\n        delta = rewards[t] + gamma * values[t + 1] - values[t]\n\
+  \        last_gae = delta + gamma * lam * last_gae\n        adv[t] = last_gae\n\
+  \    returns = adv + values[:-1]\n    return [adv.tolist(), returns.tolist()]\n"

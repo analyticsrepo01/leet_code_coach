@@ -1,0 +1,88 @@
+id: P17
+slug: insert-delete-getrandom-o1
+title: Insert / Delete / GetRandom O(1) (Replay Buffer)
+leetcode: 380
+day: 1
+pattern:
+- hash_map
+difficulty: medium
+post_training_relevance: Core data structure for RL experience replay buffers that
+  support O(1) trajectory insertion, eviction, and uniform sampling.
+statement: 'Implement a set structure supporting O(1) `insert(val)` and O(1) `remove(val)`
+  using the **swap-with-last** array + index-map trick.
+
+
+  Given a list of operations `ops` (`["insert", x]`, `["remove", x]`, `["elements"]`),
+  return the list of results where `insert`/`remove` return `True`/`False` and `elements`
+  returns the current sorted contents.'
+examples:
+- input: ops = [["insert", 1], ["remove", 2], ["insert", 2], ["remove", 1], ["insert",
+    2], ["elements"]]
+  output: '[True, False, True, True, False, [2]]'
+constraints:
+- 1 <= len(ops) <= 10^4
+function_name: run_randomized_set
+starter_code: "def run_randomized_set(ops: list[list]) -> list:\n    # Maintain a\
+  \ list `arr` and dict `pos[val] = idx`, swapping with `arr[-1]` on remove\n    pass\n"
+tests:
+- args:
+  - - - insert
+      - 1
+    - - remove
+      - 2
+    - - insert
+      - 2
+    - - remove
+      - 1
+    - - insert
+      - 2
+    - - elements
+  expected:
+  - true
+  - false
+  - true
+  - true
+  - false
+  - - 2
+hidden_tests:
+- args:
+  - - - insert
+      - 10
+    - - insert
+      - 20
+    - - insert
+      - 30
+    - - remove
+      - 10
+    - - elements
+  expected:
+  - true
+  - true
+  - true
+  - true
+  - - 20
+    - 30
+compare: exact
+time_limit_ms: 2000
+hints:
+- A Python `set` does not support O(1) uniform random index sampling (`random.choice(list)`
+  needs a dense array).
+- To delete `val` at index `i` from a list in O(1), copy `last = arr[-1]` into `arr[i]`,
+  update `pos[last] = i`, then `arr.pop()` and `del pos[val]`.
+optimal:
+  time: O(1) per op
+  space: O(n)
+follow_ups:
+- How do you handle duplicate values (LeetCode 381) where `pos[val]` maps to a `set`
+  of indices?
+reference_solution: "def run_randomized_set(ops: list[list]) -> list:\n    arr = []\n\
+  \    pos = {}\n    out = []\n    for op in ops:\n        kind = op[0]\n        if\
+  \ kind == 'insert':\n            v = op[1]\n            if v in pos:\n         \
+  \       out.append(False)\n            else:\n                pos[v] = len(arr)\n\
+  \                arr.append(v)\n                out.append(True)\n        elif kind\
+  \ == 'remove':\n            v = op[1]\n            if v not in pos:\n          \
+  \      out.append(False)\n            else:\n                idx = pos[v]\n    \
+  \            last = arr[-1]\n                arr[idx] = last\n                pos[last]\
+  \ = idx\n                arr.pop()\n                del pos[v]\n               \
+  \ out.append(True)\n        elif kind == 'elements':\n            out.append(sorted(arr))\n\
+  \    return out\n"

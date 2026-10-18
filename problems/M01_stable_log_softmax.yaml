@@ -1,0 +1,86 @@
+id: M01
+slug: stable-log-softmax
+title: Numerically Stable Softmax & Log-Softmax
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+difficulty: easy
+post_training_relevance: Every LLM loss (SFT cross-entropy, DPO, KL divergence, policy
+  gradient) relies on the log-sum-exp trick to prevent float16/float32 overflow on
+  large logits.
+statement: 'Implement `log_softmax(x, axis=-1)` in NumPy (converting input list/array
+  `x` via `np.asarray(x, dtype=np.float64)`).
+
+
+  Your implementation **must not overflow or underflow** even when logits have magnitude
+  `1e4` or `-1e4`. Return the result as a nested list (or `np.ndarray`, which the
+  test runner converts automatically).'
+examples:
+- input: x = [0.0, 0.0], axis = -1
+  output: '[-0.693147, -0.693147]'
+- input: x = [10000.0, 10000.0], axis = -1
+  output: '[-0.693147, -0.693147]'
+constraints:
+- x can be 1D, 2D, or 3D
+- Logits up to +/- 1e5
+function_name: log_softmax
+starter_code: "import numpy as np\n\ndef log_softmax(x, axis: int = -1):\n    x =\
+  \ np.asarray(x, dtype=np.float64)\n    # Write your numerically stable log_softmax\
+  \ here\n    pass\n"
+tests:
+- args:
+  - - 0.0
+    - 0.0
+  - -1
+  expected:
+  - -0.6931471805599453
+  - -0.6931471805599453
+- args:
+  - - 10000.0
+    - 10000.0
+  - -1
+  expected:
+  - -0.6931471805599453
+  - -0.6931471805599453
+- args:
+  - - - 1.0
+      - 2.0
+      - 3.0
+    - - 1000.0
+      - 1001.0
+      - 1002.0
+  - -1
+  expected:
+  - - -2.4076059644443806
+    - -1.4076059644443806
+    - -0.4076059644443806
+  - - -2.4076059644443806
+    - -1.4076059644443806
+    - -0.4076059644443806
+hidden_tests:
+- args:
+  - - -10000.0
+    - -9999.0
+  - -1
+  expected:
+  - -1.3132616875182228
+  - -0.31326168751822286
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Why does `np.log(np.exp(x) / np.sum(np.exp(x)))` fail when `x = [10000, 10000]`?
+  (`np.exp(10000)` is `inf`!)
+- 'Subtract `m = np.max(x, axis=axis, keepdims=True)` first: `shifted = x - m`.'
+- Then `log_softmax(x) = shifted - np.log(np.sum(np.exp(shifted), axis=axis, keepdims=True))`.
+optimal:
+  time: O(N)
+  space: O(N)
+follow_ups:
+- How does Online Softmax (used in FlashAttention) compute the normalizer in a single
+  pass without materializing the full row?
+reference_solution: "import numpy as np\n\ndef log_softmax(x, axis: int = -1):\n \
+  \   x = np.asarray(x, dtype=np.float64)\n    m = np.max(x, axis=axis, keepdims=True)\n\
+  \    shifted = x - m\n    return shifted - np.log(np.sum(np.exp(shifted), axis=axis,\
+  \ keepdims=True))\n"

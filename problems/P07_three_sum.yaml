@@ -1,0 +1,101 @@
+id: P07
+slug: three-sum
+title: 3Sum (Unique Zero-Sum Triplets)
+leetcode: 15
+day: 1
+pattern:
+- two_pointers
+difficulty: medium
+post_training_relevance: Sorting + two-pointer deduplication tests careful index invariant
+  management without hash-table overhead.
+statement: 'Given an integer array `nums`, return all unique triplets `[nums[i], nums[j],
+  nums[k]]` (`i != j != k`) such that `nums[i] + nums[j] + nums[k] == 0`.
+
+
+  Return the triplets sorted in ascending order (both within each triplet and across
+  the list of triplets).'
+examples:
+- input: nums = [-1, 0, 1, 2, -1, -4]
+  output: '[[-1, -1, 2], [-1, 0, 1]]'
+- input: nums = [0, 0, 0]
+  output: '[[0, 0, 0]]'
+constraints:
+- 3 <= len(nums) <= 3000
+- -10^5 <= nums[i] <= 10^5
+function_name: three_sum
+starter_code: "def three_sum(nums: list[int]) -> list[list[int]]:\n    pass\n"
+tests:
+- args:
+  - - -1
+    - 0
+    - 1
+    - 2
+    - -1
+    - -4
+  expected:
+  - - -1
+    - -1
+    - 2
+  - - -1
+    - 0
+    - 1
+- args:
+  - - 0
+    - 1
+    - 1
+  expected: []
+- args:
+  - - 0
+    - 0
+    - 0
+  expected:
+  - - 0
+    - 0
+    - 0
+hidden_tests:
+- args:
+  - - -2
+    - 0
+    - 1
+    - 1
+    - 2
+  expected:
+  - - -2
+    - 0
+    - 2
+  - - -2
+    - 1
+    - 1
+- args:
+  - - 0
+    - 0
+    - 0
+    - 0
+  expected:
+  - - 0
+    - 0
+    - 0
+compare: exact
+time_limit_ms: 2000
+hints:
+- Sort `nums` first in O(n log n). If `nums[i] > 0`, can any triplet starting at `i`
+  sum to 0?
+- For each fixed `i` (skipping duplicates `nums[i] == nums[i-1]`), run two pointers
+  `lo = i + 1` and `hi = n - 1`.
+- When a match is found, advance both pointers and skip duplicate values.
+optimal:
+  time: O(n^2)
+  space: O(1) extra
+follow_ups:
+- How would you adapt this to 3Sum Closest (minimizing `|a + b + c - target|`)?
+reference_solution: "def three_sum(nums: list[int]) -> list[list[int]]:\n    nums\
+  \ = sorted(nums)\n    n = len(nums)\n    res = []\n    for i in range(n - 2):\n\
+  \        if nums[i] > 0:\n            break\n        if i > 0 and nums[i] == nums[i\
+  \ - 1]:\n            continue\n        lo, hi = i + 1, n - 1\n        while lo <\
+  \ hi:\n            s = nums[i] + nums[lo] + nums[hi]\n            if s < 0:\n  \
+  \              lo += 1\n            elif s > 0:\n                hi -= 1\n     \
+  \       else:\n                res.append([nums[i], nums[lo], nums[hi]])\n     \
+  \           lo += 1\n                hi -= 1\n                while lo < hi and\
+  \ nums[lo] == nums[lo - 1]:\n                    lo += 1\n                while\
+  \ lo < hi and nums[hi] == nums[hi + 1]:\n                    hi -= 1\n    return\
+  \ res\n"

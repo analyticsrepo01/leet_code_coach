@@ -1,0 +1,89 @@
+id: P01
+slug: two-sum
+title: Two Sum
+leetcode: 1
+day: 1
+pattern:
+- hash_map
+difficulty: easy
+post_training_relevance: Hash map complement lookup is the foundational O(1) index
+  pattern used in prompt-response pair deduplication and vocabulary token-ID lookups.
+statement: 'Given an array of integers `nums` and an integer `target`, return the
+  indices `[i, j]` (`i < j`) of the two numbers such that they add up to `target`.
+
+
+  You may assume that each input has **exactly one solution**, and you may not use
+  the same element twice.'
+examples:
+- input: nums = [2, 7, 11, 15], target = 9
+  output: '[0, 1]'
+- input: nums = [3, 2, 4], target = 6
+  output: '[1, 2]'
+constraints:
+- 2 <= len(nums) <= 10^4
+- -10^9 <= nums[i], target <= 10^9
+function_name: two_sum
+starter_code: "def two_sum(nums: list[int], target: int) -> list[int]:\n    # Write\
+  \ your solution here\n    pass\n"
+tests:
+- args:
+  - - 2
+    - 7
+    - 11
+    - 15
+  - 9
+  expected:
+  - 0
+  - 1
+- args:
+  - - 3
+    - 2
+    - 4
+  - 6
+  expected:
+  - 1
+  - 2
+- args:
+  - - 3
+    - 3
+  - 6
+  expected:
+  - 0
+  - 1
+hidden_tests:
+- args:
+  - - -3
+    - 4
+    - 3
+    - 90
+  - 0
+  expected:
+  - 0
+  - 2
+- args:
+  - - 10
+    - 20
+    - 30
+    - 40
+    - 50
+  - 90
+  expected:
+  - 3
+  - 4
+compare: exact
+time_limit_ms: 2000
+hints:
+- What is the brute-force complexity of checking every pair (i, j)?
+- As you scan `nums[j]`, what value `need = target - nums[j]` are you looking for?
+- Store each seen number's index in a dictionary `seen[x] = i` before inserting `nums[j]`.
+optimal:
+  time: O(n)
+  space: O(n)
+follow_ups:
+- What if the array is already sorted and you must use O(1) extra space?
+- What if there are multiple pairs that sum to `target` and you need the count of
+  unique pairs?
+reference_solution: "def two_sum(nums: list[int], target: int) -> list[int]:\n   \
+  \ seen = {}\n    for i, x in enumerate(nums):\n        need = target - x\n     \
+  \   if need in seen:\n            return [seen[need], i]\n        seen[x] = i\n\
+  \    return []\n"

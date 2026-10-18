@@ -1,0 +1,46 @@
+id: T03
+slug: rlvr-grpo-failure-modes
+title: 'Theory: RLVR & GRPO Failure Modes'
+kind: theory
+track: theory
+day: 2
+pattern:
+- grpo
+- rlhf
+- theory
+difficulty: medium
+post_training_relevance: Directly probes hands-on debugging experience with reasoning
+  RL runs.
+statement: 'Discuss the four classic failure modes in **RLVR / GRPO** training and
+  how to mitigate them:
+
+  1. **Length bias** (why dividing token loss by `|y|` biases positive advantages
+  toward shorter answers and negative advantages toward longer rambling).
+
+  2. **Entropy collapse** (policy collapses to deterministic phrasing early).
+
+  3. **Zero-variance prompt groups** (all G rollouts get 0 or all get 1).
+
+  4. **Reward hacking** on verifiers or format rewards.'
+hints:
+- For length bias, think about `1/|y_i|` weighting in standard GRPO vs fixed `1/max_tokens`
+  denominator (Dr. GRPO / DAPO).
+rubric_points:
+- Explains length bias from per-response `1/|y|` normalization and fixes (Dr. GRPO
+  / DAPO token-level normalization).
+- Addresses zero-variance groups (dynamic sampling / curriculum filtering prompts
+  with 0 < pass_rate < 1).
+- Explains entropy collapse and fixes (clip-higher, temperature tuning, KL/entropy
+  bonus).
+follow_ups:
+- What is 'clip-higher' (decoupling `eps_low` and `eps_high` in DAPO) and why does
+  it prevent entropy collapse?
+reference_solution: '1. Length bias: dividing each response''s loss by its length
+  |y_i| penalizes long incorrect rollouts less per token; fix by normalizing by a
+  constant max_len or total batch tokens.
+
+  2. Zero-variance groups: prompts with all-0 or all-1 rewards yield 0 gradient; fix
+  with dynamic filtering or curriculum difficulty.
+
+  3. Entropy collapse: decouple clip_high > clip_low so low-probability exploratory
+  tokens with positive advantage can grow.'

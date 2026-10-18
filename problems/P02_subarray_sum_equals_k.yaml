@@ -1,0 +1,74 @@
+id: P02
+slug: subarray-sum-equals-k
+title: Subarray Sum Equals K
+leetcode: 560
+day: 1
+pattern:
+- hash_map
+- prefix_sum
+difficulty: medium
+post_training_relevance: Prefix-sum + hashmap is the exact trick used for counting
+  token spans, sequence packing boundaries, and cumulative-probability lookups.
+statement: Given an integer array `nums` and an integer `k`, return the total number
+  of contiguous subarrays whose sum equals `k`.
+examples:
+- input: nums = [1, 1, 1], k = 2
+  output: '2'
+- input: nums = [1, 2, 3], k = 3
+  output: '2'
+constraints:
+- 1 <= len(nums) <= 2 * 10^4
+- -1000 <= nums[i] <= 1000
+- -10^7 <= k <= 10^7
+function_name: subarray_sum
+starter_code: "def subarray_sum(nums: list[int], k: int) -> int:\n    # Write your\
+  \ solution here\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 1
+    - 1
+  - 2
+  expected: 2
+- args:
+  - - 1
+    - 2
+    - 3
+  - 3
+  expected: 2
+hidden_tests:
+- args:
+  - - 1
+    - -1
+    - 0
+  - 0
+  expected: 3
+- args:
+  - - 3
+    - 4
+    - 7
+    - 2
+    - -3
+    - 1
+    - 4
+    - 2
+  - 7
+  expected: 4
+compare: exact
+time_limit_ms: 2000
+hints:
+- What's the brute force and its complexity?
+- sum(nums[i:j]) can be written as prefix[j] - prefix[i].
+- As you scan, how many earlier prefixes equal (current_prefix - k)?
+- 'Keep a Counter of prefix sums seen so far, initialized with {0: 1}.'
+optimal:
+  time: O(n)
+  space: O(n)
+follow_ups:
+- 'Why does a two-pointer sliding window fail here? (Hint: negative numbers)'
+- How would you modify this to return the length of the longest subarray summing to
+  k?
+reference_solution: "from collections import Counter\n\ndef subarray_sum(nums: list[int],\
+  \ k: int) -> int:\n    seen = Counter({0: 1})\n    cur = 0\n    ans = 0\n    for\
+  \ x in nums:\n        cur += x\n        ans += seen[cur - k]\n        seen[cur]\
+  \ += 1\n    return ans\n"

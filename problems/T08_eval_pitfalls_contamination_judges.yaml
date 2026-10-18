@@ -1,0 +1,39 @@
+id: T08
+slug: eval-pitfalls-contamination-judges
+title: 'Theory: Evaluation Pitfalls, Contamination & LLM-as-a-Judge Biases'
+kind: theory
+track: theory
+day: 2
+pattern:
+- theory
+difficulty: easy
+post_training_relevance: Rigorous evaluation without lookahead or leakage is paramount
+  in both quant research and LLM post-training.
+statement: 'Discuss common pitfalls when evaluating post-trained LLMs:
+
+  1. **Benchmark contamination** (n-gram vs semantic rewrites, canary strings, perplexity
+  drops).
+
+  2. **LLM-as-a-Judge biases** (position bias, verbosity/length bias, self-preference
+  bias, LaTeX/markdown formatting bias) and how to debias them.
+
+  3. **Seed variance** on small benchmarks (e.g. AIME 30 problems) and why `avg@k`
+  (mean over `k` seeds) is reported alongside `pass@k`.'
+hints:
+- Think about swapping `(A, B)` and `(B, A)` for position bias and length-controlled
+  win rates (AlpacaEval LC).
+rubric_points:
+- 'Names major LLM-judge biases: position, length/verbosity, formatting, and self-preference.'
+- Describes position-swapping and length-controlled regression (GLM adjustments).
+- Explains high variance on small N benchmarks and the need for multi-seed `avg@k`.
+follow_ups:
+- How does this parallel multiple-testing / False Discovery Rate (Benjamini-Hochberg)
+  when selecting alpha signals across 100 checkpoints?
+reference_solution: '1. Contamination: detect via n-gram overlap, embedding similarity,
+  and likelihood ratio tests against held-out fresh test splits.
+
+  2. LLM-judge biases: swap response order (A,B) vs (B,A) to cancel position bias;
+  control for length/markdown in Bradley-Terry regression.
+
+  3. Small benchmarks like AIME (N=30) have ~5-8% standard error on single-seed greedy
+  decoding; always report avg@16 or avg@64 at temperature > 0.'

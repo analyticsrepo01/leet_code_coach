@@ -1,0 +1,84 @@
+id: P09
+slug: sliding-window-maximum
+title: Sliding Window Maximum
+leetcode: 239
+day: 1
+pattern:
+- sliding_window
+- monotonic_deque
+difficulty: hard
+post_training_relevance: Monotonic deque computes O(1) amortized rolling max over
+  reward/loss streams or rolling order-book price extrema.
+statement: You are given an array of integers `nums` and a sliding window of size
+  `k` moving from the very left of the array to the very right. Return a list of the
+  maximum element in each window.
+examples:
+- input: nums = [1,3,-1,-3,5,3,6,7], k = 3
+  output: '[3, 3, 5, 5, 6, 7]'
+- input: nums = [1], k = 1
+  output: '[1]'
+constraints:
+- 1 <= len(nums) <= 10^5
+- 1 <= k <= len(nums)
+function_name: max_sliding_window
+starter_code: "from collections import deque\n\ndef max_sliding_window(nums: list[int],\
+  \ k: int) -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 3
+    - -1
+    - -3
+    - 5
+    - 3
+    - 6
+    - 7
+  - 3
+  expected:
+  - 3
+  - 3
+  - 5
+  - 5
+  - 6
+  - 7
+- args:
+  - - 1
+  - 1
+  expected:
+  - 1
+hidden_tests:
+- args:
+  - - 9
+    - 8
+    - 7
+    - 6
+  - 2
+  expected:
+  - 9
+  - 8
+  - 7
+- args:
+  - - 1
+    - -1
+  - 1
+  expected:
+  - 1
+  - -1
+compare: exact
+time_limit_ms: 2000
+hints:
+- A max-heap takes O(n log k). Can we get O(n) using a `collections.deque` of indices?
+- If `i < j` and `nums[i] <= nums[j]`, can `nums[i]` ever be the maximum in any current
+  or future window? No—pop `i` from the back!
+- Maintain a deque of indices with strictly decreasing values, and pop the front when
+  `dq[0] <= i - k`.
+optimal:
+  time: O(n)
+  space: O(k)
+follow_ups:
+- Why is the amortized time complexity O(n) despite the inner `while` loop?
+reference_solution: "from collections import deque\n\ndef max_sliding_window(nums:\
+  \ list[int], k: int) -> list[int]:\n    dq = deque()\n    out = []\n    for i, x\
+  \ in enumerate(nums):\n        while dq and nums[dq[-1]] <= x:\n            dq.pop()\n\
+  \        dq.append(i)\n        if dq[0] <= i - k:\n            dq.popleft()\n  \
+  \      if i >= k - 1:\n            out.append(nums[dq[0]])\n    return out\n"

@@ -1,0 +1,78 @@
+id: M06
+slug: ppo-clipped-surrogate-loss
+title: PPO Clipped Surrogate Loss (Token-Level Masked)
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+- masking
+difficulty: medium
+post_training_relevance: 'Core policy objective in RLHF PPO and GRPO: importance-sampling
+  ratio clipping with response-token masking.'
+statement: 'Given `logp_new`, `logp_old`, `advantages`, and binary `mask` (all of
+  shape `(B, T)`), plus clip parameter `clip_eps: float = 0.2`, compute the **negative
+  PPO clipped surrogate objective** (loss to minimize) averaged over all valid tokens
+  (`mask == 1`):
+
+
+  $$r_t = \exp(\log \pi_{\text{new}} - \log \pi_{\text{old}})$$
+
+  $$L_t = -\min\big(r_t A_t,\; \text{clip}(r_t, 1 - \epsilon, 1 + \epsilon) A_t\big)$$
+
+
+  Return `float(sum(L * mask) / sum(mask))`.'
+examples:
+- input: logp_new = [[-1.0, -0.5]], logp_old = [[-1.0, -1.0]], adv = [[1.0, 2.0]],
+    mask = [[1, 1]], clip_eps = 0.2
+  output: '-1.7'
+constraints:
+- sum(mask) >= 1
+function_name: ppo_clipped_loss
+starter_code: "import numpy as np\n\ndef ppo_clipped_loss(logp_new, logp_old, adv,\
+  \ mask, clip_eps: float = 0.2) -> float:\n    pass\n"
+tests:
+- args:
+  - - - -1.0
+      - -0.5
+  - - - -1.0
+      - -1.0
+  - - - 1.0
+      - 2.0
+  - - - 1
+      - 1
+  - 0.2
+  expected: -1.7
+hidden_tests:
+- args:
+  - - - -2.0
+      - -1.0
+  - - - -1.0
+      - -1.0
+  - - - -2.0
+      - 1.0
+  - - - 1
+      - 0
+  - 0.2
+  expected: 1.6
+compare: float_tol
+time_limit_ms: 2000
+hints:
+- Compute importance ratio `ratio = np.exp(logp_new - logp_old)`.
+- Compute `surr1 = ratio * adv` and `surr2 = np.clip(ratio, 1.0 - clip_eps, 1.0 +
+  clip_eps) * adv`.
+- Take `-np.minimum(surr1, surr2)`, multiply by `mask`, and divide `np.sum(masked_loss)`
+  by `np.sum(mask)`.
+optimal:
+  time: O(B * T)
+  space: O(B * T)
+follow_ups:
+- Why do we take `min(surr1, surr2)` even when `A_t < 0`? Trace what happens when
+  `A_t < 0` and `ratio < 1 - eps` vs `ratio > 1 + eps`.
+reference_solution: "import numpy as np\n\ndef ppo_clipped_loss(logp_new, logp_old,\
+  \ adv, mask, clip_eps: float = 0.2) -> float:\n    logp_new = np.asarray(logp_new,\
+  \ dtype=np.float64)\n    logp_old = np.asarray(logp_old, dtype=np.float64)\n   \
+  \ adv = np.asarray(adv, dtype=np.float64)\n    mask = np.asarray(mask, dtype=np.float64)\n\
+  \    ratio = np.exp(logp_new - logp_old)\n    surr1 = ratio * adv\n    surr2 = np.clip(ratio,\
+  \ 1.0 - clip_eps, 1.0 + clip_eps) * adv\n    loss_per_token = -np.minimum(surr1,\
+  \ surr2) * mask\n    return float(np.sum(loss_per_token) / np.sum(mask))\n"

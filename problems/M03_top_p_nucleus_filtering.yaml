@@ -1,0 +1,91 @@
+id: M03
+slug: top-p-nucleus-filtering
+title: Top-p (Nucleus) Probability Filtering
+leetcode: null
+day: 2
+pattern:
+- prefix_sum
+- numerics
+- numpy
+difficulty: medium
+post_training_relevance: Nucleus (top-p) sampling truncates the unreliable tail of
+  the token distribution during rollout generation.
+statement: 'Given a 1D probability distribution `probs` of length `V` (already non-negative
+  and summing to `1.0`) and a threshold `p` in `(0.0, 1.0]`, implement **top-p (nucleus)
+  filtering**:
+
+
+  1. Sort tokens in descending order of probability (break ties by keeping original
+  relative order / stable sort).
+
+  2. Keep the smallest prefix of sorted tokens whose cumulative probability is `>=
+  p` (**always keep at least the top-1 token** even if `p` is tiny).
+
+  3. Zero out all other tokens and **renormalize** the kept probabilities so they
+  sum to `1.0`.'
+examples:
+- input: probs = [0.1, 0.5, 0.25, 0.15], p = 0.7
+  output: '[0.0, 0.666667, 0.333333, 0.0]'
+constraints:
+- 1 <= V <= 10^5
+- 0.0 < p <= 1.0
+function_name: top_p_filter
+starter_code: "import numpy as np\n\ndef top_p_filter(probs, p: float):\n    probs\
+  \ = np.asarray(probs, dtype=np.float64)\n    # Return renormalized 1D probabilities\
+  \ after top-p nucleus filtering\n    pass\n"
+tests:
+- args:
+  - - 0.1
+    - 0.5
+    - 0.25
+    - 0.15
+  - 0.7
+  expected:
+  - 0.0
+  - 0.6666666666666666
+  - 0.3333333333333333
+  - 0.0
+- args:
+  - - 0.1
+    - 0.5
+    - 0.25
+    - 0.15
+  - 0.2
+  expected:
+  - 0.0
+  - 1.0
+  - 0.0
+  - 0.0
+hidden_tests:
+- args:
+  - - 0.25
+    - 0.25
+    - 0.25
+    - 0.25
+  - 1.0
+  expected:
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- 'Sort indices descending: `order = np.argsort(-probs, kind=''mergesort'')` and `sorted_probs
+  = probs[order]`.'
+- Compute `cdf = np.cumsum(sorted_probs)`.
+- A token at sorted rank `r` is removed if the cumulative sum **before** including
+  `r` (i.e. `cdf[r] - sorted_probs[r]`) is already `>= p` (with rank `0` always kept).
+optimal:
+  time: O(V log V)
+  space: O(V)
+follow_ups:
+- In what order should temperature scaling, top-k, and top-p be applied during LLM
+  decoding?
+reference_solution: "import numpy as np\n\ndef top_p_filter(probs, p: float):\n  \
+  \  probs = np.asarray(probs, dtype=np.float64)\n    order = np.argsort(-probs, kind='mergesort')\n\
+  \    sorted_probs = probs[order]\n    cdf = np.cumsum(sorted_probs)\n    prev_cdf\
+  \ = cdf - sorted_probs\n    keep_sorted = prev_cdf < (p - 1e-12)\n    keep_sorted[0]\
+  \ = True\n    filtered_sorted = np.where(keep_sorted, sorted_probs, 0.0)\n    out\
+  \ = np.zeros_like(probs)\n    out[order] = filtered_sorted\n    out /= np.sum(out)\n\
+  \    return out.tolist()\n"

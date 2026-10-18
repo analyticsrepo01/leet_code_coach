@@ -1,0 +1,81 @@
+id: P05
+slug: best-time-to-buy-and-sell-stock
+title: Best Time to Buy & Sell Stock (I & II)
+leetcode: 121
+day: 1
+pattern:
+- running_state
+- greedy
+difficulty: easy
+post_training_relevance: Single-pass running extremum and greedy positive-delta accumulation
+  build fluency in O(1)-state streaming passes.
+statement: 'Given an array `prices` where `prices[i]` is the price of an asset on
+  day `i`, return a tuple `[max_single_trade, max_unlimited_trades]`:
+
+  1. `max_single_trade`: maximum profit from **at most one** buy and one sell.
+
+  2. `max_unlimited_trades`: maximum profit from **as many non-overlapping buy/sell
+  transactions** as you like.'
+examples:
+- input: prices = [7, 1, 5, 3, 6, 4]
+  output: '[5, 7]'
+- input: prices = [7, 6, 4, 3, 1]
+  output: '[0, 0]'
+constraints:
+- 1 <= len(prices) <= 10^5
+- 0 <= prices[i] <= 10^4
+function_name: stock_profits
+starter_code: "def stock_profits(prices: list[int]) -> list[int]:\n    # Return [max_single_trade_profit,\
+  \ max_unlimited_trades_profit]\n    pass\n"
+tests:
+- args:
+  - - 7
+    - 1
+    - 5
+    - 3
+    - 6
+    - 4
+  expected:
+  - 5
+  - 7
+- args:
+  - - 7
+    - 6
+    - 4
+    - 3
+    - 1
+  expected:
+  - 0
+  - 0
+hidden_tests:
+- args:
+  - - 1
+    - 2
+    - 3
+    - 4
+    - 5
+  expected:
+  - 4
+  - 4
+- args:
+  - - 3
+  expected:
+  - 0
+  - 0
+compare: exact
+time_limit_ms: 2000
+hints:
+- For a single trade, track `min_price` seen so far and maximize `p - min_price`.
+- For unlimited trades, every upward step `max(0, prices[i] - prices[i-1])` contributes
+  to the optimal total.
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- How does the unlimited-trade recurrence change if each sell incurs a fixed fee `fee`?
+reference_solution: "def stock_profits(prices: list[int]) -> list[int]:\n    if not\
+  \ prices:\n        return [0, 0]\n    min_p = prices[0]\n    best_one = 0\n    best_inf\
+  \ = 0\n    for i, p in enumerate(prices):\n        if p < min_p:\n            min_p\
+  \ = p\n        if p - min_p > best_one:\n            best_one = p - min_p\n    \
+  \    if i > 0 and p > prices[i - 1]:\n            best_inf += p - prices[i - 1]\n\
+  \    return [best_one, best_inf]\n"

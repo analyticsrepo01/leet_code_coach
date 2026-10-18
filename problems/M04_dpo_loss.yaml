@@ -1,0 +1,87 @@
+id: M04
+slug: dpo-loss
+title: Direct Preference Optimization (DPO) Loss & Implicit Rewards
+leetcode: null
+day: 2
+pattern:
+- numerics
+- numpy
+difficulty: medium
+post_training_relevance: DPO is a staple LLM post-training interview question—both
+  deriving it on the whiteboard and implementing it cleanly with numerically stable
+  log-sigmoid.
+statement: 'Given 1D arrays of sequence log-probabilities `pi_chosen`, `pi_rejected`,
+  `ref_chosen`, `ref_rejected` (each of shape `(B,)`) and inverse-temperature `beta:
+  float`:
+
+
+  Compute:
+
+  1. `chosen_rewards = beta * (pi_chosen - ref_chosen)`
+
+  2. `rejected_rewards = beta * (pi_rejected - ref_rejected)`
+
+  3. `loss = -mean(log_sigmoid(chosen_rewards - rejected_rewards))`
+
+
+  Return `[float(loss), chosen_rewards.tolist(), rejected_rewards.tolist()]`.'
+examples:
+- input: pi_c = [-1.0], pi_r = [-2.0], ref_c = [-1.5], ref_r = [-1.5], beta = 0.1
+  output: '[0.644397, [0.05], [-0.05]]'
+constraints:
+- 1 <= B <= 1024
+- beta > 0
+function_name: dpo_loss
+starter_code: "import numpy as np\n\ndef dpo_loss(pi_c, pi_r, ref_c, ref_r, beta:\
+  \ float):\n    # Return [loss_float, chosen_rewards_list, rejected_rewards_list]\n\
+  \    pass\n"
+tests:
+- args:
+  - - -1.0
+  - - -2.0
+  - - -1.5
+  - - -1.5
+  - 0.1
+  expected:
+  - 0.6443966600735709
+  - - 0.05
+  - - -0.05
+hidden_tests:
+- args:
+  - - -10.0
+    - -5.0
+  - - -20.0
+    - -5.0
+  - - -12.0
+    - -5.0
+  - - -18.0
+    - -5.0
+  - 0.5
+  expected:
+  - 0.4100375958014589
+  - - 1.0
+    - 0.0
+  - - -1.0
+    - 0.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Define `chosen_reward = beta * (pi_c - ref_c)` and `rejected_reward = beta * (pi_r
+  - ref_r)`.
+- Let `margins = chosen_reward - rejected_reward`.
+- Use numerically stable `log_sigmoid(z) = -np.logaddexp(0.0, -z)` so large positive
+  or negative margins never overflow!
+optimal:
+  time: O(B)
+  space: O(B)
+follow_ups:
+- What is the gradient of the DPO loss with respect to `pi_c` and `pi_r`, and why
+  does it weight examples by `sigmoid(rejected_reward - chosen_reward)`?
+- How does IPO or cDPO modify this loss when preference labels are noisy?
+reference_solution: "import numpy as np\n\ndef dpo_loss(pi_c, pi_r, ref_c, ref_r,\
+  \ beta: float):\n    pi_c = np.asarray(pi_c, dtype=np.float64)\n    pi_r = np.asarray(pi_r,\
+  \ dtype=np.float64)\n    ref_c = np.asarray(ref_c, dtype=np.float64)\n    ref_r\
+  \ = np.asarray(ref_r, dtype=np.float64)\n    chosen_r = beta * (pi_c - ref_c)\n\
+  \    rejected_r = beta * (pi_r - ref_r)\n    margins = chosen_r - rejected_r\n \
+  \   losses = np.logaddexp(0.0, -margins)\n    return [float(np.mean(losses)), chosen_r.tolist(),\
+  \ rejected_r.tolist()]\n"

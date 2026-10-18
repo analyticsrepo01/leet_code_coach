@@ -1,0 +1,66 @@
+id: P16
+slug: contiguous-array
+title: Contiguous Array (Longest Balanced 0/1 Span)
+leetcode: 525
+day: 1
+pattern:
+- prefix_sum
+- hash_map
+difficulty: medium
+post_training_relevance: First-occurrence prefix map finds longest balanced preference
+  or buy/sell imbalance window.
+statement: Given a binary array `nums` (containing only `0` and `1`), return the maximum
+  length of a contiguous subarray with an equal number of `0` and `1`.
+examples:
+- input: nums = [0, 1]
+  output: '2'
+- input: nums = [0, 1, 0]
+  output: '2'
+constraints:
+- 1 <= len(nums) <= 10^5
+- nums[i] is 0 or 1
+function_name: find_max_length
+starter_code: "def find_max_length(nums: list[int]) -> int:\n    pass\n"
+tests:
+- args:
+  - - 0
+    - 1
+  expected: 2
+- args:
+  - - 0
+    - 1
+    - 0
+  expected: 2
+hidden_tests:
+- args:
+  - - 0
+    - 0
+    - 1
+    - 0
+    - 0
+    - 0
+    - 1
+    - 1
+  expected: 6
+- args:
+  - - 1
+    - 1
+    - 1
+  expected: 0
+compare: exact
+time_limit_ms: 2000
+hints:
+- Replace every `0` with `-1`. Now a balanced subarray is simply a subarray whose
+  sum is `0`!
+- 'Store only the **earliest** index at which each prefix sum occurs, initialized
+  with `{0: -1}`.'
+optimal:
+  time: O(n)
+  space: O(n)
+follow_ups:
+- Why do we only overwrite `first_seen[prefix]` if `prefix` is NOT already in `first_seen`?
+reference_solution: "def find_max_length(nums: list[int]) -> int:\n    first_seen\
+  \ = {0: -1}\n    bal = 0\n    best = 0\n    for i, x in enumerate(nums):\n     \
+  \   bal += 1 if x == 1 else -1\n        if bal in first_seen:\n            best\
+  \ = max(best, i - first_seen[bal])\n        else:\n            first_seen[bal] =\
+  \ i\n    return best\n"

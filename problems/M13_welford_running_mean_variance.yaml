@@ -1,0 +1,73 @@
+id: M13
+slug: welford-running-mean-variance
+title: Welford's Online Running Mean & Variance
+leetcode: null
+day: 2
+pattern:
+- streaming
+- numerics
+difficulty: easy
+post_training_relevance: Used in RLHF/PPO to normalize streaming rewards and value
+  targets in O(1) memory without catastrophic cancellation.
+statement: 'Implement Welford''s one-pass algorithm on a stream `xs: list[float]`.
+  After processing all elements, return `[count, mean, pop_var, sample_var]` where
+  `pop_var` divides `M2` by `count` (`ddof=0`) and `sample_var` divides `M2` by `count
+  - 1` (`ddof=1`, or `0.0` if `count < 2`).'
+examples:
+- input: xs = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]
+  output: '[8, 5.0, 4.0, 4.571429]'
+constraints:
+- 1 <= len(xs) <= 10^5
+function_name: welford_stats
+starter_code: "def welford_stats(xs: list[float]) -> list[float]:\n    # Return [count,\
+  \ mean, pop_var, sample_var]\n    pass\n"
+tests:
+- args:
+  - - 2.0
+    - 4.0
+    - 4.0
+    - 4.0
+    - 5.0
+    - 5.0
+    - 7.0
+    - 9.0
+  expected:
+  - 8
+  - 5.0
+  - 4.0
+  - 4.571428571428571
+- args:
+  - - 10.0
+  expected:
+  - 1
+  - 10.0
+  - 0.0
+  - 0.0
+hidden_tests:
+- args:
+  - - 1000000001.0
+    - 1000000002.0
+    - 1000000003.0
+  expected:
+  - 3
+  - 1000000002.0
+  - 0.6666666666666666
+  - 1.0
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Why does `E[X^2] - (E[X])^2` fail when `xs = [1e9 + 1, 1e9 + 2, 1e9 + 3]`? Catastrophic
+  cancellation in float64!
+- 'Maintain `n = 0`, `mean = 0.0`, `M2 = 0.0`. For each `x`: `n += 1`, `delta = x
+  - mean`, `mean += delta / n`, `delta2 = x - mean`, `M2 += delta * delta2`.'
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- How do you merge Welford statistics `(n_A, mean_A, M2_A)` and `(n_B, mean_B, M2_B)`
+  across two distributed GPU workers (Chan's parallel variance formula)?
+reference_solution: "def welford_stats(xs: list[float]) -> list[float]:\n    n = 0\n\
+  \    mean = 0.0\n    m2 = 0.0\n    for x in xs:\n        n += 1\n        delta =\
+  \ x - mean\n        mean += delta / n\n        delta2 = x - mean\n        m2 +=\
+  \ delta * delta2\n    pop_var = m2 / n if n > 0 else 0.0\n    samp_var = m2 / (n\
+  \ - 1) if n > 1 else 0.0\n    return [n, mean, pop_var, samp_var]\n"

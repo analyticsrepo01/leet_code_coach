@@ -1,0 +1,38 @@
+id: T09
+slug: adam-vs-adamw-and-rl-learning-rates
+title: 'Theory: Adam vs. AdamW & Optimization in RL Fine-Tuning'
+kind: theory
+track: theory
+day: 2
+pattern:
+- numerics
+- theory
+difficulty: medium
+post_training_relevance: Explicitly cited in top quant trading quant AI's ML research interview
+  guide.
+statement: 'Answer two optimization questions from first principles:
+
+  1. Write the update equations for **Adam with $L_2$ regularization** versus **AdamW
+  (decoupled weight decay)**, and explain mathematically why they are NOT equivalent.
+
+  2. Why does RL post-training (PPO/GRPO) require learning rates `1e-6` to `5e-6`
+  (10x–100x smaller than pretraining) and what happens to Adam''s second moment $v_t$
+  when gradients are sparse or non-stationary?'
+hints:
+- In $L_2$-regularized Adam, the $\lambda \theta$ term is added to $g_t$, so it gets
+  divided by $\sqrt{\hat{v}_t} + \epsilon$!
+rubric_points:
+- Shows that in Adam + L2, weight decay term lambda*w is scaled by 1/sqrt(v_t), so
+  weights with large historical gradients decay LESS.
+- 'Shows AdamW decouples weight decay: w_{t+1} = (1 - lr*lambda) w_t - lr * m_hat
+  / (sqrt(v_hat) + eps).'
+- Explains why non-stationary RL distributions and KL sensitivity require small LRs
+  (~1e-6).
+follow_ups:
+- How much optimizer state memory does FP32 AdamW consume per parameter compared to
+  BF16 model weights?
+reference_solution: 'In Adam with L2 penalty, g_t'' = g_t + lambda*w_t enters both
+  m_t and v_t, so the effective weight decay is divided by sqrt(v_t), coupling decay
+  to gradient magnitude. AdamW applies decay directly to parameters: w <- w - lr *
+  lambda * w - lr * m_hat / (sqrt(v_hat) + eps). In RL post-training, small LRs (~1e-6)
+  prevent policy collapse and excessive KL divergence from the reference model.'

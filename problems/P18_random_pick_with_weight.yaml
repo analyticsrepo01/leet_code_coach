@@ -1,0 +1,68 @@
+id: P18
+slug: random-pick-with-weight
+title: Random Pick with Weight (CDF Binary Search)
+leetcode: 528
+day: 1
+pattern:
+- prefix_sum
+- binary_search
+difficulty: medium
+post_training_relevance: Exact inverse-CDF sampling used for weighted SFT/pretraining
+  data-mixture sampling and categorical token sampling.
+statement: Given a list of positive weights `w` and a list of uniform random query
+  points `u_queries` in `[0.0, 1.0)`, return for each `u` the index `i` selected by
+  inverse-CDF sampling (i.e. the first index where cumulative weight `prefix[i] >
+  u * total_weight`).
+examples:
+- input: w = [1, 3], u_queries = [0.1, 0.25, 0.75]
+  output: '[0, 1, 1]'
+constraints:
+- 1 <= len(w) <= 10^4
+- 0.0 <= u < 1.0
+function_name: weighted_pick_queries
+starter_code: "import bisect\n\ndef weighted_pick_queries(w: list[float], u_queries:\
+  \ list[float]) -> list[int]:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 3
+  - - 0.1
+    - 0.25
+    - 0.75
+  expected:
+  - 0
+  - 1
+  - 1
+hidden_tests:
+- args:
+  - - 2
+    - 5
+    - 3
+  - - 0.0
+    - 0.19
+    - 0.21
+    - 0.69
+    - 0.71
+    - 0.99
+  expected:
+  - 0
+  - 0
+  - 1
+  - 1
+  - 2
+  - 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- Build the prefix sum array `cdf` where `cdf[i] = sum(w[:i+1])` and `total = cdf[-1]`.
+- For each query `u`, search for `target = u * total` using `bisect.bisect_right(cdf,
+  target)`.
+optimal:
+  time: O(n + q log n)
+  space: O(n)
+follow_ups:
+- Can we sample in O(1) per query after O(n) preprocessing? (Walker's Alias Method!)
+reference_solution: "import bisect\n\ndef weighted_pick_queries(w: list[float], u_queries:\
+  \ list[float]) -> list[int]:\n    cdf = []\n    cur = 0.0\n    for x in w:\n   \
+  \     cur += x\n        cdf.append(cur)\n    total = cdf[-1]\n    return [bisect.bisect_right(cdf,\
+  \ u * total) for u in u_queries]\n"

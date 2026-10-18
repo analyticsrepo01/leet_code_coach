@@ -1,0 +1,82 @@
+id: P11
+slug: merge-k-sorted-lists
+title: Merge K Sorted Streams (Arrays)
+leetcode: 23
+day: 1
+pattern:
+- heap
+difficulty: medium
+post_training_relevance: K-way heap merge is used to merge pre-sorted tokenized shards
+  or multi-exchange timestamped tick streams.
+statement: You are given `lists`, a list of `k` sorted integer arrays (each sorted
+  in ascending order). Merge all the arrays into one sorted list and return it.
+examples:
+- input: lists = [[1,4,5],[1,3,4],[2,6]]
+  output: '[1, 1, 2, 3, 4, 4, 5, 6]'
+- input: lists = []
+  output: '[]'
+constraints:
+- 0 <= k <= 10^4
+- Total elements N <= 10^5
+function_name: merge_k_sorted
+starter_code: "import heapq\n\ndef merge_k_sorted(lists: list[list[int]]) -> list[int]:\n\
+  \    pass\n"
+tests:
+- args:
+  - - - 1
+      - 4
+      - 5
+    - - 1
+      - 3
+      - 4
+    - - 2
+      - 6
+  expected:
+  - 1
+  - 1
+  - 2
+  - 3
+  - 4
+  - 4
+  - 5
+  - 6
+- args:
+  - []
+  expected: []
+- args:
+  - - []
+  expected: []
+hidden_tests:
+- args:
+  - - - -5
+      - 0
+      - 10
+    - - -3
+      - 2
+    - - 0
+      - 1
+  expected:
+  - -5
+  - -3
+  - 0
+  - 0
+  - 1
+  - 2
+  - 10
+compare: exact
+time_limit_ms: 2000
+hints:
+- Keep a min-heap of size at most `k` holding `(value, list_idx, elem_idx)`.
+- Each time you `heappop` the smallest tuple, append `value` to the output and `heappush`
+  the next element from `lists[list_idx]` if available.
+optimal:
+  time: O(N log k)
+  space: O(k) heap
+follow_ups:
+- Why do we include `list_idx` in the heap tuple in Python when merging custom objects?
+reference_solution: "import heapq\n\ndef merge_k_sorted(lists: list[list[int]]) ->\
+  \ list[int]:\n    heap = []\n    for i, arr in enumerate(lists):\n        if arr:\n\
+  \            heapq.heappush(heap, (arr[0], i, 0))\n    out = []\n    while heap:\n\
+  \        val, i, j = heapq.heappop(heap)\n        out.append(val)\n        if j\
+  \ + 1 < len(lists[i]):\n            heapq.heappush(heap, (lists[i][j + 1], i, j\
+  \ + 1))\n    return out\n"

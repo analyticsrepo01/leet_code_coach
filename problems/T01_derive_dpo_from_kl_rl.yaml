@@ -1,0 +1,54 @@
+id: T01
+slug: derive-dpo-from-kl-rl
+title: 'Theory: Derive DPO from KL-Regularized RL Objective'
+kind: theory
+track: theory
+day: 2
+pattern:
+- rlhf
+- dpo
+- theory
+difficulty: medium
+post_training_relevance: 'First-principles derivation of Direct Preference Optimization
+  (Rafailov et al., 2023) is the #1 theoretical post-training interview question.'
+statement: 'Walk through the mathematical derivation of **Direct Preference Optimization
+  (DPO)** out loud:
+
+
+  1. Write the KL-regularized reward maximization objective $\max_\pi \mathbb{E}_{y
+  \sim \pi}[r(x,y)] - \beta D_{\text{KL}}(\pi(y|x) \| \pi_{\text{ref}}(y|x))$.
+
+  2. Solve for the closed-form optimal policy $\pi^*(y|x)$ in terms of $r(x,y)$, $\pi_{\text{ref}}(y|x)$,
+  and partition function $Z(x)$.
+
+  3. Invert this equation to express $r(x,y)$ in terms of $\pi^*(y|x)$ and $\pi_{\text{ref}}(y|x)$.
+
+  4. Substitute into the Bradley-Terry preference model $P(y_w \succ y_l | x) = \sigma(r(x,
+  y_w) - r(x, y_l))$ and show how $Z(x)$ cancels.'
+hints:
+- Rewrite the objective as $-\beta D_{\text{KL}}(\pi(y|x) \| \frac{1}{Z(x)} \pi_{\text{ref}}(y|x)
+  \exp(r(x,y)/\beta)) + \beta \log Z(x)$.
+- Since KL is minimized at 0 when the distributions match, $\pi^*(y|x) = \frac{1}{Z(x)}
+  \pi_{\text{ref}}(y|x) \exp(r(x,y)/\beta)$.
+- 'Take logs: $r(x,y) = \beta \log \frac{\pi^*(y|x)}{\pi_{\text{ref}}(y|x)} + \beta
+  \log Z(x)$. Because $Z(x)$ depends only on $x$, it cancels in $r(x, y_w) - r(x,
+  y_l)$!'
+rubric_points:
+- States KL-regularized RL objective clearly with beta temperature.
+- Derives Gibbs/Boltzmann optimal policy pi*(y|x) proportional to pi_ref(y|x) exp(r(x,y)/beta).
+- Inverts for implicit reward r(x,y) = beta log(pi/pi_ref) + beta log Z(x).
+- Shows partition function Z(x) cancels in pairwise difference r(x, y_w) - r(x, y_l)
+  under Bradley-Terry.
+follow_ups:
+- Why can DPO assign high probability to out-of-distribution responses, and how does
+  online iterative DPO or GRPO address this?
+reference_solution: '1. Objective: max_pi E_{y~pi}[r(x,y) - beta log(pi(y|x)/pi_ref(y|x))].
+
+  2. Optimal policy: pi*(y|x) = (1/Z(x)) pi_ref(y|x) exp(r(x,y)/beta), where Z(x)
+  = sum_y pi_ref(y|x) exp(r(x,y)/beta).
+
+  3. Rearranging: r(x,y) = beta log(pi*(y|x)/pi_ref(y|x)) + beta log Z(x).
+
+  4. Substituting into Bradley-Terry P(y_w > y_l) = sigma(r(x,y_w) - r(x,y_l)) cancels
+  beta log Z(x), yielding L_DPO = -E[log sigma(beta log(pi(y_w)/pi_ref(y_w)) - beta
+  log(pi(y_l)/pi_ref(y_l)))].'
