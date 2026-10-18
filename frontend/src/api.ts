@@ -54,6 +54,19 @@ export interface ScorecardData {
   summary?: string;
 }
 
+export interface RevisionNoteItem {
+  id: string;
+  problem_id: string;
+  problem_title: string;
+  title: string;
+  category: string;
+  key_takeaways: string[];
+  code_or_formula: string;
+  content: string;
+  source: 'live_coach' | 'ai_summary' | 'manual' | string;
+  created_at: number;
+}
+
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('livecoach_access_token') || '';
   return token ? { 'x-access-token': token } : {};
@@ -116,6 +129,7 @@ export async function fetchDashboardStats(): Promise<{
     { attempts: number; solved: number; hints: number; failed_runs: number }
   >;
   recent_scorecards: ScorecardData[];
+  revision_notes?: RevisionNoteItem[];
 }> {
   const res = await fetch('/api/sessions', { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch sessions');
@@ -155,5 +169,49 @@ export async function fetchVertexToken(
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch Vertex token');
+  return res.json();
+}
+
+export async function fetchRevisionNotes(): Promise<RevisionNoteItem[]> {
+  const res = await fetch('/api/notes', { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error('Failed to fetch revision notes');
+  return res.json();
+}
+
+export async function saveRevisionNoteApi(
+  note: Partial<RevisionNoteItem> & { title: string }
+): Promise<RevisionNoteItem> {
+  const res = await fetch('/api/notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(note),
+  });
+  if (!res.ok) throw new Error('Failed to save revision note');
+  return res.json();
+}
+
+export async function deleteRevisionNoteApi(
+  noteId: string
+): Promise<{ deleted: boolean; id: string }> {
+  const res = await fetch(`/api/notes/${encodeURIComponent(noteId)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete revision note');
+  return res.json();
+}
+
+export async function synthesizeRevisionNoteApi(payload: {
+  problem_id: string;
+  transcript: Array<{ role: string; text: string }>;
+  code: string;
+  custom_topic?: string;
+}): Promise<RevisionNoteItem> {
+  const res = await fetch('/api/notes/synthesize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to synthesize revision note');
   return res.json();
 }

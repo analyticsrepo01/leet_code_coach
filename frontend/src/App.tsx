@@ -9,17 +9,21 @@ import {
   BookCheck,
   CheckCircle2,
   KeyRound,
+  FileText,
+  BookMarked,
 } from 'lucide-react';
 import {
   fetchConfig,
   fetchDashboardStats,
   fetchProblem,
   fetchProblems,
+  fetchRevisionNotes,
 } from './api';
 import { CoachMode, useAppStore } from './store';
 import { preloadRunner } from './runner/runTests';
 import { coachSocket } from './coach/CoachSocket';
 import { ProblemPane } from './components/ProblemPane';
+import { ReferenceNotesPane } from './components/ReferenceNotesPane';
 import { EditorPane } from './components/EditorPane';
 import { ResultsPane } from './components/ResultsPane';
 import { CoachPane } from './components/CoachPane';
@@ -41,6 +45,9 @@ export const App: React.FC = () => {
     timerRunning,
     solvedIds,
     targetFirm,
+    leftPaneTab,
+    revisionNotes,
+    unreadNotesCount,
     setProblems,
     setCurrentProblem,
     setMode,
@@ -50,6 +57,8 @@ export const App: React.FC = () => {
     setShowProblemDrawer,
     setDashboardStats,
     setTargetFirm,
+    setLeftPaneTab,
+    setRevisionNotes,
   } = useAppStore();
 
   const [needsToken, setNeedsToken] = useState(false);
@@ -70,6 +79,12 @@ export const App: React.FC = () => {
       }
       const stats = await fetchDashboardStats();
       setDashboardStats(stats.solved_ids || [], stats.pattern_stats || {});
+      try {
+        const notes = await fetchRevisionNotes();
+        setRevisionNotes(notes);
+      } catch (e) {
+        console.warn('Could not fetch server revision notes:', e);
+      }
       setNeedsToken(false);
     } catch (err: any) {
       if (String(err?.message || '').includes('401')) {
@@ -232,8 +247,30 @@ export const App: React.FC = () => {
           })}
         </div>
 
-        {/* Right: Timer & Progress */}
+        {/* Right: Reference Notes Tab Shortcut, Timer & Progress */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() =>
+              setLeftPaneTab(leftPaneTab === 'notes' ? 'problem' : 'notes')
+            }
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition ${
+              leftPaneTab === 'notes'
+                ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            <BookMarked className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Reference Notes</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900 text-emerald-300 font-mono">
+              {revisionNotes.length}
+            </span>
+            {unreadNotesCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-slate-950 font-bold animate-pulse">
+                +{unreadNotesCount}
+              </span>
+            )}
+          </button>
+
           {timerSecondsRemaining !== null && (
             <button
               onClick={() =>
@@ -264,9 +301,45 @@ export const App: React.FC = () => {
 
       {/* Main 3-Pane Workspace */}
       <main className="flex-1 min-h-0 grid grid-cols-12">
-        {/* Left Pane: Problem Statement (3 cols) */}
-        <div className="col-span-3 min-h-0 border-r border-slate-800 overflow-hidden">
-          <ProblemPane />
+        {/* Left Pane: Problem Statement | Reference Notes for Revision (3 cols) */}
+        <div className="col-span-3 min-h-0 border-r border-slate-800 flex flex-col overflow-hidden">
+          <div className="h-9 px-2 border-b border-slate-800 bg-slate-900 flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setLeftPaneTab('problem')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1 rounded text-xs font-semibold transition ${
+                leftPaneTab === 'problem'
+                  ? 'bg-slate-800 text-emerald-300 border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Problem</span>
+            </button>
+            <button
+              onClick={() => setLeftPaneTab('notes')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1 rounded text-xs font-semibold transition ${
+                leftPaneTab === 'notes'
+                  ? 'bg-slate-800 text-emerald-300 border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookMarked className="w-3.5 h-3.5" />
+              <span>Reference Notes</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-emerald-400 font-mono">
+                {revisionNotes.length}
+              </span>
+              {unreadNotesCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              )}
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {leftPaneTab === 'problem' ? (
+              <ProblemPane />
+            ) : (
+              <ReferenceNotesPane />
+            )}
+          </div>
         </div>
 
         {/* Center Pane: Editor + Runner Results (6 cols) */}

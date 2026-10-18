@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../avatar/gemini-avatar';
-import { fetchVertexToken, requestHintApi } from '../api';
+import { fetchVertexToken, requestHintApi, saveRevisionNoteApi } from '../api';
 import { useAppStore } from '../store';
 import { handleClientToolCall } from '../coach/clientTools';
 import { coachSocket } from '../coach/CoachSocket';
@@ -43,6 +43,32 @@ const AVATAR_TOOLS = [
           required: ['level'],
         },
       },
+      {
+        name: 'save_revision_note',
+        description:
+          'Create and save a structured Reference Revision Note in the Reference Notes tab.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            title: { type: 'STRING', description: 'Title of the concept note' },
+            category: { type: 'STRING', description: 'Category tag' },
+            key_takeaways: {
+              type: 'ARRAY',
+              items: { type: 'STRING' },
+              description: 'Key bullet points',
+            },
+            code_or_formula: {
+              type: 'STRING',
+              description: 'Python snippet or formula',
+            },
+            content: {
+              type: 'STRING',
+              description: 'Detailed explanation of the concept',
+            },
+          },
+          required: ['title', 'category', 'key_takeaways', 'content'],
+        },
+      },
     ],
   },
 ];
@@ -56,6 +82,7 @@ export const LiveAvatarCoach: React.FC = () => {
     setAvatarName,
     appendTranscript,
     addHint,
+    addOrUpdateRevisionNote,
     sessionId,
   } = useAppStore();
 
@@ -151,6 +178,22 @@ export const LiveAvatarCoach: React.FC = () => {
           const h = await requestHintApi(currentProblem.id, lvl, sessionId);
           addHint(h.level, h.text);
           responses.push({ id: call.id, response: { output: h.text } });
+        } else if (call.name === 'save_revision_note') {
+          const saved = await saveRevisionNoteApi({
+            problem_id: currentProblem?.id || '',
+            problem_title: currentProblem?.title || '',
+            title: call.args?.title || 'Concept Note',
+            category: call.args?.category || 'General',
+            key_takeaways: call.args?.key_takeaways || [],
+            code_or_formula: call.args?.code_or_formula || '',
+            content: call.args?.content || '',
+            source: 'live_coach',
+          });
+          addOrUpdateRevisionNote(saved, true);
+          responses.push({
+            id: call.id,
+            response: { output: 'Revision note saved to Reference Notes tab.' },
+          });
         } else {
           const out = await handleClientToolCall(call.name, call.args || {});
           responses.push({ id: call.id, response: { output: out } });

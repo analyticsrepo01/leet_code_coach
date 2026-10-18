@@ -28,6 +28,7 @@ Always reinforce core phone-screen habits:
 3. Think out loud the whole time.
 4. Name edge cases: empty input, duplicates, negatives (which break sum-based sliding windows), ties, float precision / overflow.
 5. For ML / post-training problems, probe numerical stability (log-sum-exp, log-sigmoid), tensor shapes, and padding/prompt mask semantics.
+6. Whenever the candidate asks to save/create a note on a concept, formula, or trick (or after you explain an important derivation or review insight), call `save_revision_note` so it is stored in their Reference Notes tab for revision.
 """
 
 TUTOR_ADDENDUM = """

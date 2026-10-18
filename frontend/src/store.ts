@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import {
   ProblemDetail,
   ProblemListItem,
+  RevisionNoteItem,
   ScorecardData,
   TestCaseResult,
 } from './api';
 
 export type CoachMode = 'tutor' | 'interview' | 'review';
 export type CoachEngine = 'voice_proxy' | 'video_avatar';
+export type LeftPaneTab = 'problem' | 'notes';
 
 export interface TranscriptItem {
   id: string;
@@ -22,6 +24,25 @@ export interface LineHighlight {
   note: string;
 }
 
+const NOTES_STORAGE_KEY = 'livecoach_revision_notes_v1';
+
+function loadLocalNotes(): RevisionNoteItem[] {
+  try {
+    const raw = localStorage.getItem(NOTES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalNotes(notes: RevisionNoteItem[]): void {
+  try {
+    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+  } catch {}
+}
+
 interface AppState {
   problems: ProblemListItem[];
   currentProblem: ProblemDetail | null;
@@ -30,6 +51,7 @@ interface AppState {
   mode: CoachMode;
   coachEngine: CoachEngine;
   avatarName: string;
+  leftPaneTab: LeftPaneTab;
 
   sessionId: string;
   wsStatus: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
@@ -47,6 +69,10 @@ interface AppState {
   revealedHints: Array<{ level: number; text: string }>;
   highlight: LineHighlight | null;
   transcript: TranscriptItem[];
+
+  revisionNotes: RevisionNoteItem[];
+  isSynthesizingNote: boolean;
+  unreadNotesCount: number;
 
   timerSecondsRemaining: number | null;
   timerRunning: boolean;
@@ -69,6 +95,7 @@ interface AppState {
   setMode: (mode: CoachMode) => void;
   setCoachEngine: (engine: CoachEngine) => void;
   setAvatarName: (name: string) => void;
+  setLeftPaneTab: (tab: LeftPaneTab) => void;
   setWsStatus: (
     status: AppState['wsStatus'],
     detail?: string,
@@ -88,6 +115,13 @@ interface AppState {
   setHighlight: (highlight: LineHighlight | null) => void;
   appendTranscript: (role: 'user' | 'coach' | 'system', text: string) => void;
   clearTranscript: () => void;
+  setRevisionNotes: (notes: RevisionNoteItem[]) => void;
+  addOrUpdateRevisionNote: (
+    note: RevisionNoteItem,
+    switchToTab?: boolean
+  ) => void;
+  removeRevisionNote: (noteId: string) => void;
+  setIsSynthesizingNote: (val: boolean) => void;
   startTimer: (minutes: number) => void;
   stopTimer: () => void;
   tickTimer: () => void;
@@ -110,6 +144,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: 'tutor',
   coachEngine: 'voice_proxy',
   avatarName: 'Kira',
+  leftPaneTab: 'problem',
 
   sessionId: `sess-${Math.random().toString(36).slice(2, 10)}`,
   wsStatus: 'disconnected',
@@ -127,6 +162,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   revealedHints: [],
   highlight: null,
   transcript: [],
+
+  revisionNotes: loadLocalNotes(),
+  isSynthesizingNote: false,
+  unreadNotesCount: 0,
 
   timerSecondsRemaining: null,
   timerRunning: false,
@@ -167,6 +206,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setMode: (mode) => set({ mode }),
   setCoachEngine: (coachEngine) => set({ coachEngine }),
   setAvatarName: (avatarName) => set({ avatarName }),
+
+  setLeftPaneTab: (leftPaneTab) =>
+    set((state) => ({
+      leftPaneTab,
+      unreadNotesCount: leftPaneTab === 'notes' ? 0 : state.unreadNotesCount,
+    })),
 
   setWsStatus: (wsStatus, wsDetail, sessionId) =>
     set((state) => ({
@@ -217,7 +262,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!trimmed) return state;
       const list = [...state.transcript];
       const last = list[list.length - 1];
-      // Merge streaming speech fragments from the same role if within 4 seconds
       if (
         last &&
         last.role === role &&
@@ -247,6 +291,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 
   clearTranscript: () => set({ transcript: [] }),
+
+  setRevisionNotes: (serverNotes) =>
+    set((state) => {
+      const map = new Map<string, RevisionNoteItem>();
+      for (const n of [...serverNotes, ...state.revisionNotes]) {
+        if (n && n.id) map.set(n.id, n);
+      }
+      const merged = Array.from(map.values()).sort(
+        (a, b) => (b.created_at || 0) - (a.created_at || 0)
+      );
+      saveLocalNotes(merged);
+      return { revisionNotes: merged };
+    }),
+
+  addOrUpdateRevisionNote: (note, switchToTab = false) =>
+    set((state) => {
+      const idx = state.revisionNotes.findIndex((n) => n.id === note.id);
+      let updated: RevisionNoteItem[];
+      if (idx >= 0) {
+        updated = [...state.revisionNotes];
+        updated[idx] = note;
+      } else {
+        updated = [note, ...state.revisionNotes];
+      }
+      saveLocalNotes(updated);
+      const nextTab = switchToTab ? 'notes' : state.leftPaneTab;
+      const nextUnread =
+        nextTab === 'notes' ? 0 : state.unreadNotesCount + (idx >= 0 ? 0 : 1);
+      return {
+        revisionNotes: updated,
+        leftPaneTab: nextTab,
+        unreadNotesCount: nextUnread,
+      };
+    }),
+
+  removeRevisionNote: (noteId) =>
+    set((state) => {
+      const updated = state.revisionNotes.filter((n) => n.id !== noteId);
+      saveLocalNotes(updated);
+      return { revisionNotes: updated };
+    }),
+
+  setIsSynthesizingNote: (isSynthesizingNote) => set({ isSynthesizingNote }),
 
   startTimer: (minutes) =>
     set({

@@ -24,6 +24,19 @@ class Scorecard(BaseModel):
     created_at: float = Field(default_factory=time.time)
 
 
+class RevisionNote(BaseModel):
+    id: str = Field(default_factory=lambda: f"note-{uuid.uuid4().hex[:8]}")
+    problem_id: str = ""
+    problem_title: str = ""
+    title: str
+    category: str = "General"
+    key_takeaways: list[str] = Field(default_factory=list)
+    code_or_formula: str = ""
+    content: str = ""
+    source: str = "live_coach"  # "live_coach" | "ai_summary" | "manual"
+    created_at: float = Field(default_factory=time.time)
+
+
 class SessionRecord(BaseModel):
     session_id: str = Field(default_factory=lambda: f"sess-{uuid.uuid4().hex[:10]}")
     problem_id: str
@@ -45,6 +58,7 @@ class SessionStore:
         self._solved_ids: set[str] = set()
         self._pattern_stats: dict[str, dict[str, int]] = {}
         self._scorecards: list[Scorecard] = []
+        self._notes: list[RevisionNote] = []
         self._fs_client: Any = None
         if settings.use_firestore:
             try:
@@ -136,6 +150,37 @@ class SessionStore:
             self._persist(rec)
         self._scorecards.append(scorecard)
 
+    def save_note(self, note: RevisionNote) -> RevisionNote:
+        if note.problem_id and not note.problem_title:
+            prob = problem_bank.get(note.problem_id)
+            if prob:
+                note.problem_title = prob.title
+        # Update existing note if id matches, otherwise prepend
+        for i, existing in enumerate(self._notes):
+            if existing.id == note.id:
+                self._notes[i] = note
+                self._persist_note(note)
+                return note
+        self._notes.insert(0, note)
+        self._persist_note(note)
+        return note
+
+    def list_notes(self, problem_id: Optional[str] = None) -> list[dict[str, Any]]:
+        items = self._notes
+        if problem_id:
+            items = [n for n in items if n.problem_id == problem_id]
+        return [n.model_dump() for n in items]
+
+    def delete_note(self, note_id: str) -> bool:
+        before = len(self._notes)
+        self._notes = [n for n in self._notes if n.id != note_id]
+        if self._fs_client:
+            try:
+                self._fs_client.collection("livecoach_notes").document(note_id).delete()
+            except Exception:
+                pass
+        return len(self._notes) < before
+
     def pick_next_problem(
         self,
         current_id: Optional[str] = None,
@@ -156,7 +201,6 @@ class SessionStore:
         if not candidates:
             return None
 
-        # Weight unsolved and weak-pattern problems first
         def score_problem(p: Any) -> tuple[int, int, str]:
             unsolved = 0 if p.id not in self._solved_ids else 1
             weakness = 0
@@ -173,6 +217,7 @@ class SessionStore:
             "solved_ids": sorted(self._solved_ids),
             "pattern_stats": self._pattern_stats,
             "recent_scorecards": [s.model_dump() for s in self._scorecards[-10:]],
+            "revision_notes": [n.model_dump() for n in self._notes],
             "active_sessions": len(self._sessions),
         }
 
@@ -185,6 +230,16 @@ class SessionStore:
             )
         except Exception as e:
             print(f"[SessionStore] Firestore write warning: {e}")
+
+    def _persist_note(self, note: RevisionNote) -> None:
+        if not self._fs_client:
+            return
+        try:
+            self._fs_client.collection("livecoach_notes").document(note.id).set(
+                note.model_dump()
+            )
+        except Exception as e:
+            print(f"[SessionStore] Firestore note write warning: {e}")
 
 
 session_store = SessionStore()

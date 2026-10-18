@@ -1,17 +1,21 @@
 from contextlib import asynccontextmanager
+import json
 from typing import Any, Optional
 from fastapi import Depends, FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from google import genai
+from google.genai import types
+import google.auth
+from pydantic import BaseModel, Field
 
 from .auth import get_vertex_access_token, verify_http_token
 from .coach.live_proxy import handle_coach_websocket
 from .coach.prompts import build_system_prompt
 from .config import settings
 from .problems import problem_bank
-from .sessions import Scorecard, session_store
+from .sessions import RevisionNote, Scorecard, session_store
 
 
 @asynccontextmanager
@@ -23,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="LiveCoach API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="LiveCoach API", version="1.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +49,14 @@ class RunRecordRequest(BaseModel):
     all_passed: bool
     kind: str = "run"
     results: Optional[list[dict[str, Any]]] = None
+
+
+class SynthesizeNoteRequest(BaseModel):
+    problem_id: str
+    transcript: list[dict[str, Any]] = Field(default_factory=list)
+    code: str = ""
+    custom_topic: Optional[str] = None
+    custom_prompt: Optional[str] = None
 
 
 @app.get("/healthz")
@@ -175,6 +187,111 @@ async def pick_next_problem_endpoint(
     if not picked:
         raise HTTPException(status_code=404, detail="No problem available")
     return picked
+
+
+@app.get("/api/notes", dependencies=[Depends(verify_http_token)])
+async def list_revision_notes(problem_id: Optional[str] = None) -> list[dict[str, Any]]:
+    return session_store.list_notes(problem_id=problem_id)
+
+
+@app.post("/api/notes", dependencies=[Depends(verify_http_token)])
+async def create_or_update_note(note: RevisionNote) -> dict[str, Any]:
+    saved = session_store.save_note(note)
+    return saved.model_dump()
+
+
+@app.delete("/api/notes/{note_id}", dependencies=[Depends(verify_http_token)])
+async def remove_revision_note(note_id: str) -> dict[str, Any]:
+    deleted = session_store.delete_note(note_id)
+    return {"deleted": deleted, "id": note_id}
+
+
+@app.post("/api/notes/synthesize", dependencies=[Depends(verify_http_token)])
+async def synthesize_revision_note(req: SynthesizeNoteRequest) -> dict[str, Any]:
+    if not problem_bank.list_all():
+        problem_bank.load()
+    prob = problem_bank.get(req.problem_id) or problem_bank.list_all()[0]
+    transcript_text = "\n".join(
+        f"{item.get('role', 'user').upper()}: {item.get('text', '')}"
+        for item in req.transcript[-30:]
+        if item.get("text")
+    )
+    focus_topic = req.custom_topic or req.custom_prompt or ""
+
+    prompt = f"""You are LiveCoach generating a high-signal Reference Revision Note for an ML / Quant research interview candidate.
+
+Problem: {prob.id} — {prob.title}
+Patterns: {", ".join(prob.pattern)}
+Optimal Complexity: Time {prob.optimal.time}, Space {prob.optimal.space}
+Post-Training Relevance: {prob.post_training_relevance}
+Problem Statement:
+{prob.statement}
+
+Candidate's Current Code / Scratchpad:
+{req.code}
+
+Live Voice & Chat Discussion Transcript:
+{transcript_text or "(No transcript yet — summarize the core concept, algorithm invariant, and post-training connection for this problem.)"}
+
+{f"Specific focus requested by candidate: {focus_topic}" if focus_topic else ""}
+
+Return a JSON object with:
+- "title": concise, memorable revision title for the concept discussed
+- "category": clean category tag (e.g. "Prefix Sum", "Two Heaps", "Sliding Window", "DPO / RLHF", "Numerics & Softmax", "Attention & KV Cache", "Probability")
+- "key_takeaways": array of 3 to 5 crisp, high-yield bullet points covering the invariant, complexity, edge cases, and interview insights from the discussion
+- "code_or_formula": canonical Python/NumPy template or key mathematical equations to memorize
+- "content": structured revision note summarizing the concept, why naive approaches fail, and how it connects to LLM post-training
+"""
+    try:
+        project = settings.google_cloud_project
+        if not project:
+            try:
+                _, default_proj = google.auth.default()
+                project = default_proj or ""
+            except Exception:
+                project = ""
+        client = genai.Client(
+            vertexai=settings.google_genai_use_vertexai,
+            project=project or None,
+            location=settings.google_cloud_location or "us-central1",
+        )
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+        parsed = json.loads(response.text or "{}")
+        note = RevisionNote(
+            problem_id=prob.id,
+            problem_title=prob.title,
+            title=str(parsed.get("title") or f"{prob.id}: {prob.title} — Key Concept"),
+            category=str(
+                parsed.get("category")
+                or (prob.pattern[0].replace("_", " ").title() if prob.pattern else "General")
+            ),
+            key_takeaways=[str(x) for x in (parsed.get("key_takeaways") or prob.hints[:3])],
+            code_or_formula=str(parsed.get("code_or_formula") or prob.reference_solution),
+            content=str(parsed.get("content") or prob.post_training_relevance),
+            source="ai_summary",
+        )
+    except Exception:
+        # Fallback if model call fails
+        note = RevisionNote(
+            problem_id=prob.id,
+            problem_title=prob.title,
+            title=f"{prob.id}: {prob.title} ({prob.optimal.time})",
+            category=prob.pattern[0].replace("_", " ").title() if prob.pattern else "General",
+            key_takeaways=list(prob.hints) + list(prob.follow_ups[:2]),
+            code_or_formula=prob.reference_solution,
+            content=prob.post_training_relevance,
+            source="ai_summary",
+        )
+
+    saved = session_store.save_note(note)
+    return saved.model_dump()
 
 
 @app.websocket("/ws/coach")

@@ -11,15 +11,18 @@ import {
   Video,
   Award,
   Sparkles,
+  BookMarked,
+  Loader2,
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { coachSocket } from '../coach/CoachSocket';
-import { requestHintApi } from '../api';
+import { requestHintApi, synthesizeRevisionNoteApi } from '../api';
 import { LiveAvatarCoach } from './LiveAvatarCoach';
 
 export const CoachPane: React.FC = () => {
   const {
     currentProblem,
+    code,
     mode,
     coachEngine,
     setCoachEngine,
@@ -34,6 +37,11 @@ export const CoachPane: React.FC = () => {
     addHint,
     scorecard,
     setShowScorecardModal,
+    addOrUpdateRevisionNote,
+    isSynthesizingNote,
+    setIsSynthesizingNote,
+    setLeftPaneTab,
+    addTranscriptTurn,
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
@@ -70,6 +78,28 @@ export const CoachPane: React.FC = () => {
     if (!inputText.trim()) return;
     coachSocket.sendText(inputText);
     setInputText('');
+  };
+
+  const handleQuickSaveNote = async () => {
+    if (!currentProblem || isSynthesizingNote) return;
+    setIsSynthesizingNote(true);
+    try {
+      const note = await synthesizeRevisionNoteApi({
+        problem_id: currentProblem.id,
+        transcript: transcript.map((t) => ({ role: t.role, text: t.text })),
+        code,
+      });
+      addOrUpdateRevisionNote(note, true);
+      addTranscriptTurn(
+        'coach',
+        `📓 Saved revision note: "${note.title}" (${note.category}) — view it in the Reference Notes tab.`
+      );
+      setLeftPaneTab('notes');
+    } catch (e) {
+      console.error('Failed to synthesize revision note:', e);
+    } finally {
+      setIsSynthesizingNote(false);
+    }
   };
 
   return (
@@ -268,6 +298,19 @@ export const CoachPane: React.FC = () => {
 
       {/* Quick Prompts */}
       <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto">
+        <button
+          onClick={handleQuickSaveNote}
+          disabled={isSynthesizingNote}
+          title="Synthesize concepts from your voice/chat discussion into the Reference Notes tab"
+          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 disabled:opacity-50"
+        >
+          {isSynthesizingNote ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <BookMarked className="w-3 h-3" />
+          )}
+          <span>Save Concept Note</span>
+        </button>
         <button
           onClick={() =>
             coachSocket.sendText(

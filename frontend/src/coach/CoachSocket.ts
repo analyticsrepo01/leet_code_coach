@@ -257,6 +257,15 @@ class CoachSocketManager {
       return;
     }
 
+    if (mtype === 'note_saved' && msg.note) {
+      store.addOrUpdateRevisionNote(msg.note, true);
+      store.appendTranscript(
+        'coach',
+        `[Saved Reference Note: "${msg.note.title}" in Reference Notes tab]`
+      );
+      return;
+    }
+
     if (mtype === 'next_problem' && msg.problem?.id) {
       try {
         const detail = await fetchProblem(msg.problem.id);

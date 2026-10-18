@@ -1,8 +1,8 @@
 from typing import Any, Callable, Coroutine
 from google.genai import types
 
-from ..problems import Problem, problem_bank
-from ..sessions import Scorecard, session_store
+from ..problems import Problem
+from ..sessions import RevisionNote, Scorecard, session_store
 
 CLIENT_SIDE_TOOLS = {
     "get_editor_state",
@@ -17,6 +17,7 @@ SERVER_SIDE_TOOLS = {
     "get_problem_details",
     "submit_scorecard",
     "next_problem",
+    "save_revision_note",
 }
 
 
@@ -201,6 +202,41 @@ def get_tool_declarations() -> list[types.Tool]:
                         },
                     ),
                 ),
+                types.FunctionDeclaration(
+                    name="save_revision_note",
+                    description=(
+                        "Create and save a structured Reference Revision Note in the candidate's Reference Notes tab. "
+                        "Call this whenever the candidate asks to save/take a note on a concept, formula, trick, or complexity insight, "
+                        "or when wrapping up an important derivation or review discussion."
+                    ),
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties={
+                            "title": types.Schema(
+                                type="STRING",
+                                description="Concise title of the concept or pattern (e.g., 'Prefix Sum + Counter Invariant' or 'DPO Implicit Reward Derivation').",
+                            ),
+                            "category": types.Schema(
+                                type="STRING",
+                                description="Topic tag such as 'Prefix Sum', 'Heaps', 'Sliding Window', 'DPO / RLHF', 'Numerics & Softmax', 'Attention & KV Cache', or 'Probability'.",
+                            ),
+                            "key_takeaways": types.Schema(
+                                type="ARRAY",
+                                items=types.Schema(type="STRING"),
+                                description="2-5 crisp bullet-point takeaways, edge cases, or interview habits to remember.",
+                            ),
+                            "code_or_formula": types.Schema(
+                                type="STRING",
+                                description="Canonical Python/NumPy snippet or mathematical formula for quick revision.",
+                            ),
+                            "content": types.Schema(
+                                type="STRING",
+                                description="Detailed explanation or summary of what was discussed.",
+                            ),
+                        },
+                        required=["title", "category", "key_takeaways", "content"],
+                    ),
+                ),
             ]
         )
     ]
@@ -288,5 +324,24 @@ async def execute_server_tool(
             return {"error": "No matching problem found."}
         await send_to_browser({"type": "next_problem", "problem": picked})
         return {"picked_problem": picked}
+
+    if name == "save_revision_note":
+        note = RevisionNote(
+            problem_id=problem.id,
+            problem_title=problem.title,
+            title=str(args.get("title") or f"{problem.id}: {problem.title}"),
+            category=str(
+                args.get("category")
+                or (problem.pattern[0].replace("_", " ").title() if problem.pattern else "General")
+            ),
+            key_takeaways=[str(x) for x in (args.get("key_takeaways") or [])],
+            code_or_formula=str(args.get("code_or_formula") or ""),
+            content=str(args.get("content") or ""),
+            source="live_coach",
+        )
+        saved = session_store.save_note(note)
+        payload = saved.model_dump()
+        await send_to_browser({"type": "note_saved", "note": payload})
+        return {"status": "note_saved", "note": payload}
 
     return {"error": f"Unhandled server tool: {name}"}
