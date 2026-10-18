@@ -85,6 +85,7 @@ async def healthz() -> dict[str, Any]:
         "status": "ok",
         "problems_loaded": len(problem_bank.list_all()),
         "live_model": settings.live_model,
+        "live_location": settings.live_location,
         "chat_model": settings.chat_model,
         "chat_location": settings.chat_location,
         "location": settings.google_cloud_location,
@@ -95,6 +96,7 @@ async def healthz() -> dict[str, Any]:
 async def get_config() -> dict[str, Any]:
     return {
         "live_model": settings.live_model,
+        "live_location": settings.live_location,
         "live_voice": settings.live_voice,
         "chat_model": settings.chat_model,
         "chat_location": settings.chat_location,

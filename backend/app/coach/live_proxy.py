@@ -16,7 +16,12 @@ from .prompts import build_system_prompt
 from .tools import CLIENT_SIDE_TOOLS, execute_server_tool, get_tool_declarations
 
 
-def _create_genai_client() -> genai.Client:
+from contextlib import AsyncExitStack
+
+_preferred_live_target: Optional[tuple[str, str]] = None
+
+
+def _create_genai_client(location: Optional[str] = None) -> genai.Client:
     project = settings.google_cloud_project
     if not project:
         try:
@@ -24,11 +29,30 @@ def _create_genai_client() -> genai.Client:
             project = default_proj or ""
         except Exception:
             project = ""
+    loc = location or settings.live_location or settings.google_cloud_location or "global"
     return genai.Client(
         vertexai=settings.google_genai_use_vertexai,
         project=project or None,
-        location=settings.google_cloud_location or "us-central1",
+        location=loc,
     )
+
+
+def _get_live_candidates() -> list[tuple[str, str]]:
+    primary_loc = settings.live_location or "global"
+    regional_loc = settings.google_cloud_location or "us-central1"
+    primary_model = settings.live_model or "gemini-3.8-live"
+
+    candidates: list[tuple[str, str]] = []
+    if _preferred_live_target:
+        candidates.append(_preferred_live_target)
+    for item in [
+        (primary_loc, primary_model),
+        (regional_loc, primary_model),
+        (regional_loc, "gemini-live-2.5-flash-native-audio"),
+    ]:
+        if item not in candidates:
+            candidates.append(item)
+    return candidates
 
 
 def _build_live_config(
@@ -170,7 +194,8 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
     reader_task = asyncio.create_task(browser_reader_loop())
 
     try:
-        client = _create_genai_client()
+        global _preferred_live_target
+        clients_by_loc: dict[str, genai.Client] = {}
         reconnect_attempts = 0
 
         while not stop_event.is_set() and reconnect_attempts < 5:
@@ -182,15 +207,39 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
             should_reconnect = False
 
             try:
-                async with client.aio.live.connect(
-                    model=settings.live_model, config=config
-                ) as live_session:
+                async with AsyncExitStack() as stack:
+                    live_session = None
+                    active_loc = settings.live_location or "global"
+                    active_model = settings.live_model
+                    last_conn_err: Optional[Exception] = None
+
+                    for cand_loc, cand_model in _get_live_candidates():
+                        if cand_loc not in clients_by_loc:
+                            clients_by_loc[cand_loc] = _create_genai_client(cand_loc)
+                        cand_client = clients_by_loc[cand_loc]
+                        try:
+                            live_session = await stack.enter_async_context(
+                                cand_client.aio.live.connect(
+                                    model=cand_model, config=config
+                                )
+                            )
+                            active_loc = cand_loc
+                            active_model = cand_model
+                            _preferred_live_target = (cand_loc, cand_model)
+                            break
+                        except Exception as conn_err:
+                            last_conn_err = conn_err
+                            continue
+
+                    if live_session is None:
+                        raise last_conn_err or RuntimeError("Failed to connect to Gemini Live API")
+
                     reconnect_attempts = 0
                     await send_json(
                         {
                             "type": "status",
                             "state": "connected",
-                            "detail": f"Connected to {settings.live_model} ({mode} mode)",
+                            "detail": f"Connected to {active_model} [{active_loc}] ({mode} mode)",
                             "session_id": session_rec.session_id,
                             "problem_id": problem.id,
                             "mode": mode,

@@ -11,6 +11,7 @@ class Settings(BaseModel):
     )
 
     live_model: str = os.getenv("LIVE_MODEL", "gemini-3.8-live")
+    live_location: str = os.getenv("LIVE_LOCATION", "global")
     live_voice: str = os.getenv("LIVE_VOICE", "Puck")
 
     chat_model: str = os.getenv("CHAT_MODEL", "gemini-4-argon")
