@@ -23,3 +23,6 @@ backend/static/
 # local
 .DS_Store
 *.log
+
+# private build docs for agy (real project ID, firm name, research notes)
+private/
