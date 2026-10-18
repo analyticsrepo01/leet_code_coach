@@ -13,6 +13,9 @@ class Settings(BaseModel):
     live_model: str = os.getenv("LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
     live_voice: str = os.getenv("LIVE_VOICE", "Puck")
 
+    chat_model: str = os.getenv("CHAT_MODEL", "gemini-4-argon")
+    chat_location: str = os.getenv("CHAT_LOCATION", "global")
+
     avatar_project_id: str = os.getenv("AVATAR_PROJECT_ID", "")
     avatar_model: str = os.getenv("AVATAR_MODEL", "gemini-3.1-flash-live-preview-04-2026")
     avatar_voice: str = os.getenv("AVATAR_VOICE", "kore")

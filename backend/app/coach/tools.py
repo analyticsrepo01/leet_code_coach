@@ -4,6 +4,7 @@ from google.genai import types
 from ..problems import Problem
 from ..resources import search_learning_resources
 from ..sessions import RevisionNote, Scorecard, session_store
+from .argon_coach import chat_with_argon
 
 CLIENT_SIDE_TOOLS = {
     "get_editor_state",
@@ -19,6 +20,7 @@ SERVER_SIDE_TOOLS = {
     "submit_scorecard",
     "next_problem",
     "save_revision_note",
+    "consult_argon_coach",
 }
 
 
@@ -238,6 +240,24 @@ def get_tool_declarations() -> list[types.Tool]:
                         required=["title", "category", "key_takeaways", "content"],
                     ),
                 ),
+                types.FunctionDeclaration(
+                    name="consult_argon_coach",
+                    description=(
+                        "Consult Gemini 4 Argon (gemini-4-argon), the deep-reasoning mathematical & algorithmic engine, "
+                        "to post a detailed written breakdown, proof, complexity analysis, or code diagnosis into the candidate's Chat pane, "
+                        "and receive a concise voice_summary for you to speak aloud around it."
+                    ),
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties={
+                            "question": types.Schema(
+                                type="STRING",
+                                description="The candidate's question or the algorithmic/math/debugging topic for Gemini 4 Argon to analyze in the chat.",
+                            ),
+                        },
+                        required=["question"],
+                    ),
+                ),
             ]
         )
     ]
@@ -252,6 +272,35 @@ async def execute_server_tool(
     allow_solution: bool,
     send_to_browser: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
 ) -> dict[str, Any]:
+    if name == "consult_argon_coach":
+        question = str(args.get("question") or "Analyze the current problem and code.")
+        rec = session_store.get(session_id)
+        last_code = rec.last_code if rec else ""
+        last_results = (rec.last_results or {}).get("results") if (rec and rec.last_results) else None
+        res = await chat_with_argon(
+            problem=problem,
+            mode="review" if allow_solution else mode,
+            user_message=question,
+            code=last_code,
+            test_results=last_results,
+            session_id=session_id,
+        )
+        await send_to_browser(
+            {
+                "type": "argon_chat",
+                "model": res["model"],
+                "reply": res["reply"],
+                "highlight": res["highlight"],
+                "revealed_hint": res["revealed_hint"],
+                "saved_note": res["saved_note"],
+            }
+        )
+        return {
+            "model": res["model"],
+            "voice_summary_to_speak": res["voice_summary"],
+            "detailed_reply_posted_to_chat": res["reply"],
+        }
+
     if name == "reveal_hint":
         total = len(problem.hints)
         if total == 0:

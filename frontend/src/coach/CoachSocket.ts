@@ -1,4 +1,4 @@
-import { fetchProblem, TestCaseResult } from '../api';
+import { fetchProblem, sendArgonChatApi, TestCaseResult } from '../api';
 import { CoachMode, useAppStore } from '../store';
 import { coachAudio } from './audio';
 import { handleClientToolCall } from './clientTools';
@@ -124,21 +124,61 @@ class CoachSocketManager {
     });
   }
 
-  public sendText(text: string): void {
+  public async sendText(text: string): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) return;
-    useAppStore.getState().appendTranscript('user', trimmed);
-    if (this.avatarTextForwarder) {
-      this.avatarTextForwarder(trimmed);
+    const store = useAppStore.getState();
+    store.appendTranscript('user', trimmed);
+
+    try {
+      const res = await sendArgonChatApi({
+        problem_id: store.currentProblem?.id || 'P01',
+        mode: store.mode,
+        message: trimmed,
+        code: store.code,
+        cursor_line: store.cursorLine,
+        test_results: store.testResults,
+        transcript: store.transcript.map((t) => ({
+          role: t.role,
+          text: t.text,
+        })),
+        session_id: store.sessionId,
+      });
+
+      store.appendTranscript('coach', `🧠 [Gemini 4 Argon] ${res.reply}`);
+
+      if (res.highlight) {
+        store.setHighlight(res.highlight);
+      }
+      if (res.revealed_hint) {
+        store.addHint(res.revealed_hint.level, res.revealed_hint.text);
+      }
+      if (res.saved_note) {
+        store.addOrUpdateRevisionNote(res.saved_note, true);
+      }
+
+      // If Live Voice or Video Avatar is connected, have it speak around Argon's written answer
+      const voicePrompt = `[ARGON CHAT SUMMARY] ${res.voice_summary}\nSpeak this summary naturally in 1-2 sentences to guide the candidate around Gemini 4 Argon's written answer in the chat.`;
+      if (this.avatarTextForwarder) {
+        this.avatarTextForwarder(voicePrompt);
+      }
+      if (this.isConnected) {
+        this.sendJson({ type: 'text', text: voicePrompt });
+      }
+    } catch (err) {
+      console.error('Argon chat fallback to Live WS:', err);
+      if (this.avatarTextForwarder) {
+        this.avatarTextForwarder(trimmed);
+      }
+      if (!this.isConnected) {
+        this.connect();
+        setTimeout(() => {
+          this.sendJson({ type: 'text', text: trimmed });
+        }, 700);
+        return;
+      }
+      this.sendJson({ type: 'text', text: trimmed });
     }
-    if (!this.isConnected) {
-      this.connect();
-      setTimeout(() => {
-        this.sendJson({ type: 'text', text: trimmed });
-      }, 700);
-      return;
-    }
-    this.sendJson({ type: 'text', text: trimmed });
   }
 
   public sendCodeSnapshot(
@@ -263,6 +303,20 @@ class CoachSocketManager {
         'coach',
         `[Saved Reference Note: "${msg.note.title}" in Reference Notes tab]`
       );
+      return;
+    }
+
+    if (mtype === 'argon_chat' && msg.reply) {
+      store.appendTranscript('coach', `🧠 [Gemini 4 Argon] ${msg.reply}`);
+      if (msg.highlight) {
+        store.setHighlight(msg.highlight);
+      }
+      if (msg.revealed_hint) {
+        store.addHint(msg.revealed_hint.level, msg.revealed_hint.text);
+      }
+      if (msg.saved_note) {
+        store.addOrUpdateRevisionNote(msg.saved_note, true);
+      }
       return;
     }
 

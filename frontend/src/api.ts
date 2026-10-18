@@ -250,3 +250,29 @@ export async function searchLearningResourcesApi(
   if (!res.ok) throw new Error('Failed to search learning resources');
   return res.json();
 }
+
+export async function sendArgonChatApi(payload: {
+  problem_id: string;
+  mode: string;
+  message: string;
+  code: string;
+  cursor_line: number;
+  test_results?: any[];
+  transcript?: Array<{ role: string; text: string }>;
+  session_id?: string;
+}): Promise<{
+  model: string;
+  reply: string;
+  voice_summary: string;
+  highlight?: { line_start: number; line_end: number; note: string } | null;
+  revealed_hint?: { level: number; total: number; text: string } | null;
+  saved_note?: RevisionNoteItem | null;
+}> {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to query Gemini 4 Argon chat');
+  return res.json();
+}

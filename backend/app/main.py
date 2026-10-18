@@ -11,6 +11,7 @@ import google.auth
 from pydantic import BaseModel, Field
 
 from .auth import get_vertex_access_token, verify_http_token
+from .coach.argon_coach import chat_with_argon, generate_with_argon
 from .coach.live_proxy import handle_coach_websocket
 from .coach.prompts import build_system_prompt
 from .config import settings
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="LiveCoach API", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="LiveCoach API", version="1.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,6 +66,17 @@ class TutorialNoteRequest(BaseModel):
     problem_id: Optional[str] = None
 
 
+class ChatRequest(BaseModel):
+    problem_id: str
+    mode: str = "tutor"
+    message: str
+    code: str = ""
+    cursor_line: int = 1
+    test_results: Optional[list[dict[str, Any]]] = None
+    transcript: Optional[list[dict[str, Any]]] = None
+    session_id: Optional[str] = None
+
+
 @app.get("/healthz")
 @app.get("/health")
 @app.get("/api/healthz")
@@ -73,6 +85,8 @@ async def healthz() -> dict[str, Any]:
         "status": "ok",
         "problems_loaded": len(problem_bank.list_all()),
         "live_model": settings.live_model,
+        "chat_model": settings.chat_model,
+        "chat_location": settings.chat_location,
         "location": settings.google_cloud_location,
     }
 
@@ -82,6 +96,8 @@ async def get_config() -> dict[str, Any]:
     return {
         "live_model": settings.live_model,
         "live_voice": settings.live_voice,
+        "chat_model": settings.chat_model,
+        "chat_location": settings.chat_location,
         "avatar_model": settings.avatar_model,
         "avatar_voice": settings.avatar_voice,
         "target_firm": settings.target_firm,
@@ -249,27 +265,10 @@ Return a JSON object with:
 - "content": structured revision note summarizing the concept, why naive approaches fail, and how it connects to LLM post-training
 """
     try:
-        project = settings.google_cloud_project
-        if not project:
-            try:
-                _, default_proj = google.auth.default()
-                project = default_proj or ""
-            except Exception:
-                project = ""
-        client = genai.Client(
-            vertexai=settings.google_genai_use_vertexai,
-            project=project or None,
-            location=settings.google_cloud_location or "us-central1",
+        raw_json = await generate_with_argon(
+            prompt, response_mime_type="application/json", temperature=0.2
         )
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-            ),
-        )
-        parsed = json.loads(response.text or "{}")
+        parsed = json.loads(raw_json or "{}")
         note = RevisionNote(
             problem_id=prob.id,
             problem_title=prob.title,
@@ -317,7 +316,7 @@ async def generate_from_scratch_tutorial(req: TutorialNoteRequest) -> dict[str, 
     topic = req.topic.strip() or "Python Dictionaries (Hash Maps) from Scratch"
     prob = problem_bank.get(req.problem_id) if req.problem_id else None
 
-    prompt = f"""You are LiveCoach creating a beginner-friendly yet interview-grade "5-Minute From-Scratch Tutorial & Cheat-Sheet" in Python on:
+    prompt = f"""You are LiveCoach (powered by Gemini 4 Argon) creating a beginner-friendly yet interview-grade "5-Minute From-Scratch Tutorial & Cheat-Sheet" in Python on:
 Topic: {topic}
 {f"Related Interview Problem: {prob.id} — {prob.title}" if prob else ""}
 
@@ -340,27 +339,10 @@ Return a JSON object with:
 """
     resources = await search_learning_resources(f"{topic} python tutorial", max_results=4)
     try:
-        project = settings.google_cloud_project
-        if not project:
-            try:
-                _, default_proj = google.auth.default()
-                project = default_proj or ""
-            except Exception:
-                project = ""
-        client = genai.Client(
-            vertexai=settings.google_genai_use_vertexai,
-            project=project or None,
-            location=settings.google_cloud_location or "us-central1",
+        raw_json = await generate_with_argon(
+            prompt, response_mime_type="application/json", temperature=0.2
         )
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-            ),
-        )
-        parsed = json.loads(response.text or "{}")
+        parsed = json.loads(raw_json or "{}")
         note = RevisionNote(
             problem_id=prob.id if prob else "TUTORIAL",
             problem_title=prob.title if prob else "5-Min From-Scratch Tutorial",
@@ -402,6 +384,29 @@ Return a JSON object with:
 
     saved = session_store.save_note(note)
     return saved.model_dump()
+
+
+@app.post("/api/chat", dependencies=[Depends(verify_http_token)])
+async def argon_chat_endpoint(req: ChatRequest) -> dict[str, Any]:
+    if not problem_bank.list_all():
+        problem_bank.load()
+    prob = problem_bank.get(req.problem_id) or problem_bank.list_all()[0]
+    try:
+        res = await chat_with_argon(
+            problem=prob,
+            mode=req.mode,
+            user_message=req.message,
+            code=req.code,
+            cursor_line=req.cursor_line,
+            test_results=req.test_results,
+            transcript=req.transcript,
+            session_id=req.session_id,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Gemini 4 Argon chat error: {e}"
+        )
 
 
 @app.websocket("/ws/coach")
