@@ -48,6 +48,8 @@ class RunRecordRequest(BaseModel):
 
 
 @app.get("/healthz")
+@app.get("/health")
+@app.get("/api/healthz")
 async def healthz() -> dict[str, Any]:
     return {
         "status": "ok",
