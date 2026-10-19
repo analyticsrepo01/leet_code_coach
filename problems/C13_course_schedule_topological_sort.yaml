@@ -1,0 +1,90 @@
+id: C13
+slug: course-schedule-topological-sort
+title: Course Schedule (Cycle Detection / Topological Sort)
+kind: coding
+track: cs
+leetcode: 207
+day: 1
+pattern:
+- graphs_bfs_dfs
+difficulty: medium
+post_training_relevance: Directed Acyclic Graph (DAG) dependency resolution & cycle
+  detection (Kahn's BFS or 3-color DFS) — critical for DAG pipelines and task schedulers.
+statement: 'There are a total of `num_courses` courses you have to take, labeled from
+  `0` to `num_courses - 1`. You are given an array `prerequisites` where `prerequisites[i]
+  = [a, b]` indicates that you **must** take course `b` first if you want to take
+  course `a`.
+
+
+  Return `True` if you can finish all courses. Otherwise, return `False`.'
+examples:
+- input: num_courses = 2, prerequisites = [[1,0]]
+  output: 'True'
+- input: num_courses = 2, prerequisites = [[1,0],[0,1]]
+  output: 'False'
+  explanation: Cycle between 0 and 1.
+constraints:
+- 1 <= num_courses <= 2000
+- 0 <= len(prerequisites) <= 5000
+function_name: can_finish_courses
+starter_code: "def can_finish_courses(num_courses: int, prerequisites: list[list[int]])\
+  \ -> bool:\n    pass\n"
+tests:
+- args:
+  - 2
+  - - - 1
+      - 0
+  expected: true
+- args:
+  - 2
+  - - - 1
+      - 0
+    - - 0
+      - 1
+  expected: false
+- args:
+  - 4
+  - - - 1
+      - 0
+    - - 2
+      - 0
+    - - 3
+      - 1
+    - - 3
+      - 2
+  expected: true
+hidden_tests:
+- args:
+  - 3
+  - - - 0
+      - 1
+    - - 1
+      - 2
+    - - 2
+      - 0
+  expected: false
+- args:
+  - 1
+  - []
+  expected: true
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'This problem asks: does the directed prerequisite graph contain a cycle?'
+- 'Kahn''s Algorithm (BFS): Compute `indegree[u]` for every course. Push all courses
+  with `indegree == 0` into a queue.'
+- Pop courses from the queue, decrement the `indegree` of their dependents, and push
+  any course whose `indegree` hits `0`. If you visit all `num_courses`, there is no
+  cycle!
+optimal:
+  time: O(V + E)
+  space: O(V + E)
+follow_ups:
+- How would you also output a valid course ordering (Course Schedule II, LC 210)?
+reference_solution: "from collections import deque\n\ndef can_finish_courses(num_courses:\
+  \ int, prerequisites: list[list[int]]) -> bool:\n    adj = [[] for _ in range(num_courses)]\n\
+  \    indeg = [0] * num_courses\n    for a, b in prerequisites:\n        adj[b].append(a)\n\
+  \        indeg[a] += 1\n    q = deque(i for i in range(num_courses) if indeg[i]\
+  \ == 0)\n    taken = 0\n    while q:\n        u = q.popleft()\n        taken +=\
+  \ 1\n        for v in adj[u]:\n            indeg[v] -= 1\n            if indeg[v]\
+  \ == 0:\n                q.append(v)\n    return taken == num_courses\n"

@@ -1,0 +1,69 @@
+id: C01
+slug: valid-palindrome
+title: Valid Palindrome
+kind: coding
+track: cs
+leetcode: 125
+day: 1
+pattern:
+- two_pointers
+- strings
+difficulty: easy
+post_training_relevance: Core string preprocessing & two-pointer inward scan — essential
+  warm-up for students and coding interviews.
+statement: 'A phrase is a **palindrome** if, after converting all uppercase letters
+  into lowercase letters and removing all non-alphanumeric characters, it reads the
+  same forward and backward.
+
+
+  Given a string `s`, return `True` if it is a palindrome, or `False` otherwise.'
+examples:
+- input: 's = "A man, a plan, a canal: Panama"'
+  output: 'True'
+  explanation: '"amanaplanacanalpanama" is a palindrome.'
+- input: s = "race a car"
+  output: 'False'
+  explanation: '"raceacar" is not a palindrome.'
+constraints:
+- 1 <= len(s) <= 2 * 10^5
+- s consists only of printable ASCII characters.
+function_name: is_palindrome
+starter_code: "def is_palindrome(s: str) -> bool:\n    # Hint: Use two pointers (left\
+  \ = 0, right = len(s) - 1) and str.isalnum()\n    pass\n"
+tests:
+- args:
+  - 'A man, a plan, a canal: Panama'
+  expected: true
+- args:
+  - race a car
+  expected: false
+- args:
+  - ' '
+  expected: true
+hidden_tests:
+- args:
+  - 0P
+  expected: false
+- args:
+  - Madam, I'm Adam!
+  expected: true
+compare: exact
+time_limit_ms: 2000
+hints:
+- Can you compare characters from the start (`left = 0`) and end (`right = len(s)
+  - 1`) moving inward?
+- Skip any character where `not s[left].isalnum()` or `not s[right].isalnum()`.
+- Compare `s[left].lower() == s[right].lower()`, then increment `left` and decrement
+  `right`.
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- How would you solve Valid Palindrome II (LC 680) where you may delete at most one
+  character?
+- Why is two pointers O(1) extra space better than building a filtered string copy?
+reference_solution: "def is_palindrome(s: str) -> bool:\n    l, r = 0, len(s) - 1\n\
+  \    while l < r:\n        while l < r and not s[l].isalnum():\n            l +=\
+  \ 1\n        while l < r and not s[r].isalnum():\n            r -= 1\n        if\
+  \ s[l].lower() != s[r].lower():\n            return False\n        l += 1\n    \
+  \    r -= 1\n    return True\n"

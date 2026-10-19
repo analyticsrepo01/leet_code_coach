@@ -1,0 +1,73 @@
+id: C15
+slug: house-robber
+title: House Robber
+kind: coding
+track: cs
+leetcode: 198
+day: 1
+pattern:
+- dynamic_programming
+difficulty: medium
+post_training_relevance: Classic 1D decision DP (`take` vs `skip`) — builds core intuition
+  for state transitions.
+statement: 'You are a professional robber planning to rob houses along a street. Each
+  house has a certain amount of money stashed, the only constraint stopping you from
+  robbing each of them is that adjacent houses have security systems connected and
+  **it will automatically contact the police if two adjacent houses were broken into
+  on the same night**.
+
+
+  Given an integer array `nums` representing the amount of money of each house, return
+  *the maximum amount of money you can rob tonight without alerting the police*.'
+examples:
+- input: nums = [1,2,3,1]
+  output: '4'
+  explanation: Rob house 0 (1) + house 2 (3) = 4.
+- input: nums = [2,7,9,3,1]
+  output: '12'
+  explanation: Rob house 0 (2) + house 2 (9) + house 4 (1) = 12.
+constraints:
+- 1 <= len(nums) <= 100
+- 0 <= nums[i] <= 400
+function_name: rob_houses
+starter_code: "def rob_houses(nums: list[int]) -> int:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 2
+    - 3
+    - 1
+  expected: 4
+- args:
+  - - 2
+    - 7
+    - 9
+    - 3
+    - 1
+  expected: 12
+hidden_tests:
+- args:
+  - - 2
+    - 1
+    - 1
+    - 2
+  expected: 4
+- args:
+  - - 10
+  expected: 10
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'At house `i`, you have two options: skip house `i` (keep best up to `i-1`), or
+  rob house `i` (add `nums[i]` to best up to `i-2`).'
+- 'Write the recurrence: `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`.'
+- 'Notice you only need the last two values: `prev2, prev1 = 0, 0`.'
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- How does this change if the street is circular so house `0` and house `n-1` are
+  adjacent (House Robber II, LC 213)?
+reference_solution: "def rob_houses(nums: list[int]) -> int:\n    prev2, prev1 = 0,\
+  \ 0\n    for x in nums:\n        prev2, prev1 = prev1, max(prev1, prev2 + x)\n \
+  \   return prev1\n"

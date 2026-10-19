@@ -1,0 +1,80 @@
+id: C02
+slug: valid-parentheses
+title: Valid Parentheses
+kind: coding
+track: cs
+leetcode: 20
+day: 1
+pattern:
+- stack
+- strings
+difficulty: easy
+post_training_relevance: Classic stack LIFO invariant — foundation for expression
+  parsing, AST validation, and structured output grammar checking.
+statement: 'Given a string `s` containing just the characters `''(''`, `'')''`, `''{''`,
+  `''}''`, `''[''` and `'']''`, determine if the input string is valid.
+
+
+  An input string is valid if:
+
+  1. Open brackets must be closed by the same type of brackets.
+
+  2. Open brackets must be closed in the correct order.
+
+  3. Every close bracket has a corresponding open bracket of the same type.'
+examples:
+- input: s = "()[]{}"
+  output: 'True'
+- input: s = "(]"
+  output: 'False'
+- input: s = "([])"
+  output: 'True'
+constraints:
+- 1 <= len(s) <= 10^4
+- 's consists of parentheses only: ()[]{}'
+function_name: is_valid_parentheses
+starter_code: "def is_valid_parentheses(s: str) -> bool:\n    # Use a list as a LIFO\
+  \ stack\n    pass\n"
+tests:
+- args:
+  - ()
+  expected: true
+- args:
+  - ()[]{}
+  expected: true
+- args:
+  - (]
+  expected: false
+- args:
+  - ([])
+  expected: true
+hidden_tests:
+- args:
+  - (
+  expected: false
+- args:
+  - ']'
+  expected: false
+- args:
+  - '{[()()]}'
+  expected: true
+compare: exact
+time_limit_ms: 2000
+hints:
+- When you see an opening bracket `(`, `[`, or `{`, what should you remember for later?
+- Push opening brackets onto a stack (`stack.append(ch)`). When you see a closing
+  bracket, check the top of the stack!
+- 'Use a dictionary `pairs = {")": "(", "]": "[", "}": "{"}` and verify `stack` is
+  completely empty at the end.'
+optimal:
+  time: O(n)
+  space: O(n)
+follow_ups:
+- What edge case happens if the input is just `"((("` or `")))"`?
+- Can this be solved in O(1) space if there is only ONE type of bracket `()`? Why
+  does that fail for multiple bracket types?
+reference_solution: "def is_valid_parentheses(s: str) -> bool:\n    stack = []\n \
+  \   pairs = {\")\": \"(\", \"]\": \"[\", \"}\": \"{\"}\n    for ch in s:\n     \
+  \   if ch in pairs:\n            if not stack or stack[-1] != pairs[ch]:\n     \
+  \           return False\n            stack.pop()\n        else:\n            stack.append(ch)\n\
+  \    return len(stack) == 0\n"

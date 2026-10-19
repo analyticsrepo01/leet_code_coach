@@ -1,0 +1,78 @@
+id: C19
+slug: subsets-backtracking
+title: Subsets (Power Set / Backtracking)
+kind: coding
+track: cs
+leetcode: 78
+day: 1
+pattern:
+- backtracking
+difficulty: medium
+post_training_relevance: Teaches recursive state-space tree exploration (choose /
+  explore / unchoose) and bitmask enumeration.
+statement: 'Given an integer array `nums` of **unique** elements, return *all possible
+  subsets (the power set)*.
+
+
+  The solution set **must not** contain duplicate subsets. Return the subsets sorted
+  lexicographically (or in any order).'
+examples:
+- input: nums = [1,2,3]
+  output: '[[],[1],[2],[1,2],[3],[1,3],[2,3],[1,2,3]]'
+- input: nums = [0]
+  output: '[[],[0]]'
+constraints:
+- 1 <= len(nums) <= 10
+- All numbers of nums are unique.
+function_name: subsets
+starter_code: "def subsets(nums: list[int]) -> list[list[int]]:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 2
+    - 3
+  expected:
+  - []
+  - - 1
+  - - 1
+    - 2
+  - - 1
+    - 2
+    - 3
+  - - 1
+    - 3
+  - - 2
+  - - 2
+    - 3
+  - - 3
+- args:
+  - - 0
+  expected:
+  - []
+  - - 0
+hidden_tests:
+- args:
+  - - 4
+    - 5
+  expected:
+  - []
+  - - 4
+  - - 4
+    - 5
+  - - 5
+compare: unordered
+time_limit_ms: 2000
+hints:
+- 'For each element `nums[i]`, you have two choices: include `nums[i]` in your current
+  path or exclude it.'
+- Alternatively, start with `res = [[]]` and for each `x` in `nums`, extend `res`
+  with `[curr + [x] for curr in res]`!
+optimal:
+  time: O(n * 2^n)
+  space: O(n * 2^n)
+follow_ups:
+- How do you avoid duplicate subsets if `nums` contains duplicate numbers (Subsets
+  II, LC 90)?
+reference_solution: "def subsets(nums: list[int]) -> list[list[int]]:\n    res: list[list[int]]\
+  \ = [[]]\n    for x in sorted(nums):\n        res += [curr + [x] for curr in res]\n\
+  \    return sorted(res)\n"

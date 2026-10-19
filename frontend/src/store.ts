@@ -5,6 +5,7 @@ import {
   RevisionNoteItem,
   ScorecardData,
   TestCaseResult,
+  UserPersonaItem,
 } from './api';
 
 export type CoachMode = 'tutor' | 'interview' | 'review';
@@ -25,6 +26,79 @@ export interface LineHighlight {
 }
 
 const NOTES_STORAGE_KEY = 'livecoach_revision_notes_v1';
+const PERSONAS_STORAGE_KEY = 'livecoach_personas_v1';
+const ACTIVE_PERSONA_KEY = 'livecoach_active_persona_id';
+
+export const DEFAULT_PERSONAS: UserPersonaItem[] = [
+  {
+    id: 'persona-student',
+    name: 'CS Student (Grade 14 / College)',
+    avatar_emoji: '🎓',
+    role: 'Grade 14 / Undergrad CS Student',
+    experience_level: 'intermediate',
+    coding_background:
+      'Studying Computer Science fundamentals in Python: arrays, strings, hash maps, two pointers, binary search, recursion, BFS/DFS graphs, and dynamic programming.',
+    coaching_style:
+      'Patient, encouraging mentor. Walk through small dry-run examples step-by-step, build visual intuition before writing code, explain Big-O clearly, and ask friendly Socratic questions.',
+    preferred_mode: 'tutor',
+    preferred_voice: 'Puck',
+    preferred_track: 'cs',
+    preferred_difficulty: 'all',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
+  {
+    id: 'persona-beginner',
+    name: 'Beginner / First-Time Coder',
+    avatar_emoji: '🌱',
+    role: 'New to Python & Algorithms',
+    experience_level: 'beginner',
+    coding_background:
+      'Learning Python syntax (loops, lists, dictionaries, sets, functions) and basic algorithmic thinking from scratch.',
+    coaching_style:
+      'Super supportive, zero-jargon teacher. Explain Python syntax and built-in methods clearly with tiny 3-line examples, celebrate small wins, and guide one small step at a time.',
+    preferred_mode: 'tutor',
+    preferred_voice: 'Puck',
+    preferred_track: 'cs',
+    preferred_difficulty: 'easy',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
+  {
+    id: 'persona-swe',
+    name: 'Software Engineer (General LeetCode)',
+    avatar_emoji: '💻',
+    role: 'Software Engineer / Interview Prep',
+    experience_level: 'intermediate',
+    coding_background:
+      'Practicing Blind 75 / NeetCode 150 patterns for software engineering interviews in Python.',
+    coaching_style:
+      'Practical SWE interview coach. Focus on clean modular Python, boundary edge cases, optimal time/space trade-offs, and clear verbal problem breakdown.',
+    preferred_mode: 'tutor',
+    preferred_voice: 'Puck',
+    preferred_track: 'all',
+    preferred_difficulty: 'medium',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
+  {
+    id: 'persona-quant',
+    name: 'Quant & ML Research Candidate',
+    avatar_emoji: '⚡',
+    role: 'Quant DS & LLM Post-Training',
+    experience_level: 'advanced',
+    coding_background:
+      'Experienced in algorithms, NumPy vectorization, streaming statistics, numerical stability, and LLM post-training (DPO, GRPO, FlashAttention, KV cache).',
+    coaching_style:
+      'Rigorous Socratic technical interviewer. Probe algorithmic invariants, cache locality, streaming constraints, numerical stability, and mathematical derivations.',
+    preferred_mode: 'interview',
+    preferred_voice: 'Puck',
+    preferred_track: 'ds',
+    preferred_difficulty: 'all',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
+];
 
 function loadLocalNotes(): RevisionNoteItem[] {
   try {
@@ -43,6 +117,23 @@ function saveLocalNotes(notes: RevisionNoteItem[]): void {
   } catch {}
 }
 
+function loadLocalPersonas(): UserPersonaItem[] {
+  try {
+    const raw = localStorage.getItem(PERSONAS_STORAGE_KEY);
+    if (!raw) return DEFAULT_PERSONAS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_PERSONAS;
+  } catch {
+    return DEFAULT_PERSONAS;
+  }
+}
+
+function saveLocalPersonas(personas: UserPersonaItem[]): void {
+  try {
+    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(personas));
+  } catch {}
+}
+
 interface AppState {
   problems: ProblemListItem[];
   currentProblem: ProblemDetail | null;
@@ -52,6 +143,10 @@ interface AppState {
   coachEngine: CoachEngine;
   avatarName: string;
   leftPaneTab: LeftPaneTab;
+
+  personas: UserPersonaItem[];
+  activePersonaId: string;
+  showPersonaModal: boolean;
 
   sessionId: string;
   wsStatus: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
@@ -98,6 +193,12 @@ interface AppState {
   setAvatarName: (name: string) => void;
   setLeftPaneTab: (tab: LeftPaneTab) => void;
   toggleTheme: () => void;
+  setTheme: (theme: 'dark' | 'light') => void;
+  setPersonas: (personas: UserPersonaItem[]) => void;
+  setActivePersonaId: (id: string) => void;
+  setShowPersonaModal: (show: boolean) => void;
+  upsertPersona: (persona: UserPersonaItem) => void;
+  removePersona: (id: string) => void;
   setWsStatus: (
     status: AppState['wsStatus'],
     detail?: string,
@@ -148,6 +249,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   avatarName: 'Kira',
   leftPaneTab: 'problem',
 
+  personas: loadLocalPersonas(),
+  activePersonaId:
+    (typeof localStorage !== 'undefined' &&
+      localStorage.getItem(ACTIVE_PERSONA_KEY)) ||
+    'persona-student',
+  showPersonaModal: false,
+
   sessionId: `sess-${Math.random().toString(36).slice(2, 10)}`,
   wsStatus: 'disconnected',
   wsDetail: 'Click Connect Voice Coach to start',
@@ -193,6 +301,61 @@ export const useAppStore = create<AppState>((set, get) => ({
         localStorage.setItem('livecoach_theme', next);
       } catch {}
       return { theme: next };
+    }),
+
+  setTheme: (theme) => {
+    try {
+      localStorage.setItem('livecoach_theme', theme);
+    } catch {}
+    set({ theme });
+  },
+
+  setPersonas: (serverPersonas) =>
+    set((state) => {
+      const byId = new Map<string, UserPersonaItem>();
+      for (const p of serverPersonas) {
+        byId.set(p.id, p);
+      }
+      for (const p of state.personas) {
+        if (!byId.has(p.id)) {
+          byId.set(p.id, p);
+        }
+      }
+      const merged = Array.from(byId.values());
+      saveLocalPersonas(merged);
+      return { personas: merged };
+    }),
+
+  setActivePersonaId: (activePersonaId) => {
+    try {
+      localStorage.setItem(ACTIVE_PERSONA_KEY, activePersonaId);
+    } catch {}
+    set({ activePersonaId });
+  },
+
+  setShowPersonaModal: (showPersonaModal) => set({ showPersonaModal }),
+
+  upsertPersona: (persona) =>
+    set((state) => {
+      const idx = state.personas.findIndex((p) => p.id === persona.id);
+      const next =
+        idx >= 0
+          ? state.personas.map((p, i) => (i === idx ? persona : p))
+          : [...state.personas, persona];
+      saveLocalPersonas(next);
+      return { personas: next };
+    }),
+
+  removePersona: (id) =>
+    set((state) => {
+      const next = state.personas.filter((p) => p.id !== id);
+      saveLocalPersonas(next);
+      const nextActive =
+        state.activePersonaId === id ? 'persona-student' : state.activePersonaId;
+      try {
+        localStorage.setItem(ACTIVE_PERSONA_KEY, nextActive);
+      } catch {}
+      return { personas: next, activePersonaId: nextActive };
     }),
 
   setCurrentProblem: (problem) => {

@@ -1,0 +1,75 @@
+id: C06
+slug: missing-number-xor
+title: Missing Number
+kind: coding
+track: cs
+leetcode: 268
+day: 1
+pattern:
+- bit_manipulation
+- hash_map
+difficulty: easy
+post_training_relevance: Teaches O(1) space algebraic invariants (Gauss sum and bitwise
+  XOR cancellation) vs O(n) hash sets.
+statement: Given an array `nums` containing `n` distinct numbers in the range `[0,
+  n]`, return *the only number in the range that is missing from the array*.
+examples:
+- input: nums = [3,0,1]
+  output: '2'
+  explanation: n = 3 since there are 3 numbers, so all numbers are in [0,3]. 2 is
+    missing.
+- input: nums = [0,1]
+  output: '2'
+- input: nums = [9,6,4,2,3,5,7,0,1]
+  output: '8'
+constraints:
+- n == len(nums)
+- 1 <= n <= 10^4
+- All numbers in nums are unique.
+function_name: missing_number
+starter_code: "def missing_number(nums: list[int]) -> int:\n    # Can you solve this\
+  \ in O(n) time and O(1) extra space?\n    pass\n"
+tests:
+- args:
+  - - 3
+    - 0
+    - 1
+  expected: 2
+- args:
+  - - 0
+    - 1
+  expected: 2
+- args:
+  - - 9
+    - 6
+    - 4
+    - 2
+    - 3
+    - 5
+    - 7
+    - 0
+    - 1
+  expected: 8
+hidden_tests:
+- args:
+  - - 0
+  expected: 1
+- args:
+  - - 1
+  expected: 0
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'Approach 1 (Math): What is the sum of all integers from `0` to `n`? It is `n *
+  (n + 1) // 2`.'
+- Subtract `sum(nums)` from `n * (n + 1) // 2` and what remains is the missing number!
+- 'Approach 2 (Bitwise XOR): Since `x ^ x == 0` and `x ^ 0 == x`, XORing all indices
+  `0..n` with all values in `nums` cancels every present number.'
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- Compare the hash-set solution (`O(n)` space), sorting (`O(n log n)` time), Gauss
+  sum (`O(1)` space), and XOR (`O(1)` space, overflow-safe).
+reference_solution: "def missing_number(nums: list[int]) -> int:\n    n = len(nums)\n\
+  \    return n * (n + 1) // 2 - sum(nums)\n"

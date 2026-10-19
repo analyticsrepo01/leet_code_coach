@@ -1,0 +1,81 @@
+id: C08
+slug: container-with-most-water
+title: Container With Most Water
+kind: coding
+track: cs
+leetcode: 11
+day: 1
+pattern:
+- two_pointers
+- greedy
+difficulty: medium
+post_training_relevance: 'Classic two-pointer elimination proof: why moving the shorter
+  boundary is always safe.'
+statement: 'You are given an integer array `height` of length `n`. There are `n` vertical
+  lines drawn such that the two endpoints of the `i`-th line are `(i, 0)` and `(i,
+  height[i])`.
+
+
+  Find two lines that together with the x-axis form a container, such that the container
+  contains the most water. Return *the maximum amount of water a container can store*.'
+examples:
+- input: height = [1,8,6,2,5,4,8,3,7]
+  output: '49'
+  explanation: Lines at index 1 (height 8) and index 8 (height 7) hold min(8, 7) *
+    (8 - 1) = 49.
+- input: height = [1,1]
+  output: '1'
+constraints:
+- 2 <= len(height) <= 10^5
+- 0 <= height[i] <= 10^4
+function_name: max_area
+starter_code: "def max_area(height: list[int]) -> int:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 8
+    - 6
+    - 2
+    - 5
+    - 4
+    - 8
+    - 3
+    - 7
+  expected: 49
+- args:
+  - - 1
+    - 1
+  expected: 1
+hidden_tests:
+- args:
+  - - 4
+    - 3
+    - 2
+    - 1
+    - 4
+  expected: 16
+- args:
+  - - 1
+    - 2
+    - 1
+  expected: 2
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'Start with the widest possible container: `l = 0` and `r = len(height) - 1`. Area
+  is `min(height[l], height[r]) * (r - l)`.'
+- As you move pointers inward, the width `(r - l)` strictly decreases. Which pointer
+  MUST you move to have any chance of increasing height?
+- 'Always move the pointer with the smaller height (`if height[l] < height[r]: l +=
+  1 else: r -= 1`).'
+optimal:
+  time: O(n)
+  space: O(1)
+follow_ups:
+- Prove rigorously why discarding the shorter wall cannot miss the global optimum.
+- How does this differ from Trapping Rain Water (LC 42)?
+reference_solution: "def max_area(height: list[int]) -> int:\n    l, r = 0, len(height)\
+  \ - 1\n    best = 0\n    while l < r:\n        h = height[l] if height[l] < height[r]\
+  \ else height[r]\n        best = max(best, h * (r - l))\n        if height[l] <\
+  \ height[r]:\n            l += 1\n        else:\n            r -= 1\n    return\
+  \ best\n"

@@ -1,0 +1,95 @@
+id: C14
+slug: rotting-oranges-bfs
+title: Rotting Oranges (Multi-Source BFS)
+kind: coding
+track: cs
+leetcode: 994
+day: 1
+pattern:
+- graphs_bfs_dfs
+difficulty: medium
+post_training_relevance: Teaches Multi-Source Shortest Path BFS level-by-level on
+  unweighted grids.
+statement: 'You are given an `m x n` `grid` where each cell can have one of three
+  values:
+
+  - `0` representing an empty cell,
+
+  - `1` representing a fresh orange, or
+
+  - `2` representing a rotten orange.
+
+
+  Every minute, any fresh orange that is **4-directionally adjacent** to a rotten
+  orange becomes rotten.
+
+
+  Return *the minimum number of minutes that must elapse until no cell has a fresh
+  orange*. If this is impossible, return `-1`.'
+examples:
+- input: grid = [[2,1,1],[1,1,0],[0,1,1]]
+  output: '4'
+- input: grid = [[2,1,1],[0,1,1],[1,0,1]]
+  output: '-1'
+constraints:
+- 1 <= m, n <= 10
+function_name: oranges_rotting
+starter_code: "def oranges_rotting(grid: list[list[int]]) -> int:\n    pass\n"
+tests:
+- args:
+  - - - 2
+      - 1
+      - 1
+    - - 1
+      - 1
+      - 0
+    - - 0
+      - 1
+      - 1
+  expected: 4
+- args:
+  - - - 2
+      - 1
+      - 1
+    - - 0
+      - 1
+      - 1
+    - - 1
+      - 0
+      - 1
+  expected: -1
+- args:
+  - - - 0
+      - 2
+  expected: 0
+hidden_tests:
+- args:
+  - - - 0
+  expected: 0
+- args:
+  - - - 1
+  expected: -1
+compare: exact
+time_limit_ms: 2000
+hints:
+- Why doesn't DFS work here? Because rot spreads in parallel from all initially rotten
+  oranges at the same speed!
+- Initialize your `deque` with ALL initially rotten oranges `(r, c)` at `minute =
+  0`, and count how many `fresh` oranges exist.
+- Process the BFS queue level-by-level (`for _ in range(len(q)):`), decrementing `fresh`
+  each time you rot a neighbor.
+optimal:
+  time: O(m * n)
+  space: O(m * n)
+follow_ups:
+- What should your function return if `fresh == 0` initially (e.g., `[[0]]`)?
+reference_solution: "from collections import deque\n\ndef oranges_rotting(grid: list[list[int]])\
+  \ -> int:\n    m, n = len(grid), len(grid[0])\n    q = deque()\n    fresh = 0\n\
+  \    for r in range(m):\n        for c in range(n):\n            if grid[r][c] ==\
+  \ 2:\n                q.append((r, c))\n            elif grid[r][c] == 1:\n    \
+  \            fresh += 1\n    minutes = 0\n    while q and fresh > 0:\n        minutes\
+  \ += 1\n        for _ in range(len(q)):\n            r, c = q.popleft()\n      \
+  \      for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n                nr, nc = r +\
+  \ dr, c + dc\n                if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] ==\
+  \ 1:\n                    grid[nr][nc] = 2\n                    fresh -= 1\n   \
+  \                 q.append((nr, nc))\n    return minutes if fresh == 0 else -1\n"

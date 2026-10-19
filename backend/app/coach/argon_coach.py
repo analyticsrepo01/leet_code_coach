@@ -51,8 +51,10 @@ async def chat_with_argon(
     test_results: Optional[list[dict[str, Any]]] = None,
     transcript: Optional[list[dict[str, Any]]] = None,
     session_id: Optional[str] = None,
+    persona_id: Optional[str] = None,
 ) -> dict[str, Any]:
     firm = settings.target_firm or "quants related"
+    persona = session_store.get_persona(persona_id)
     mode_lower = (mode or "tutor").lower()
     msg_lower = user_message.lower()
     unlock_solution = (
@@ -99,6 +101,13 @@ async def chat_with_argon(
 
     prompt = f"""You are **Gemini 4 Argon** (`{settings.chat_model}`), the deep-reasoning algorithmic, mathematical, and ML post-training problem-solving brain inside LiveCoach (preparing the candidate for a {firm} technical interview).
 You work alongside a real-time Gemini Live Voice Coach that speaks your `voice_summary` out loud while the candidate reads your detailed `reply` in the chat pane.
+
+[ACTIVE LEARNER / CANDIDATE PERSONA]
+Name: {persona.name} ({persona.avatar_emoji})
+Role / Level: {persona.role} (Experience: {persona.experience_level.upper()})
+Coding Background: {persona.coding_background}
+Coaching Style Instructions: {persona.coaching_style}
+IMPORTANT: Tailor your explanation depth, analogies, and tone directly to this persona!
 
 CURRENT MODE: {mode_lower.upper()}
 - In TUTOR mode: Give mathematically & algorithmically rigorous Socratic guidance, pinpoint exact bug lines or invariant flaws, explain data structures/concepts clearly, and guide them toward the optimal {problem.optimal.time} time / {problem.optimal.space} space solution. Do not dump the full final solution code unless they explicitly asked "show solution".

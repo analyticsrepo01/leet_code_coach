@@ -3,7 +3,7 @@ export interface ProblemListItem {
   slug: string;
   title: string;
   kind: 'coding' | 'theory';
-  track: 'ds' | 'ml' | 'theory';
+  track: 'cs' | 'ds' | 'ml' | 'theory' | string;
   leetcode: number | null;
   day: number;
   pattern: string[];
@@ -251,6 +251,66 @@ export async function searchLearningResourcesApi(
   return res.json();
 }
 
+export interface UserPersonaItem {
+  id: string;
+  name: string;
+  avatar_emoji: string;
+  role: string;
+  experience_level: 'beginner' | 'intermediate' | 'advanced' | string;
+  coding_background: string;
+  coaching_style: string;
+  preferred_mode: 'tutor' | 'interview' | 'review' | string;
+  preferred_voice: string;
+  preferred_track: 'all' | 'cs' | 'ds' | 'ml' | 'theory' | string;
+  preferred_difficulty: 'all' | 'easy' | 'medium' | 'hard' | string;
+  preferred_theme: 'dark' | 'light' | string;
+  is_builtin?: boolean;
+  created_at?: number;
+}
+
+export async function fetchPersonas(): Promise<UserPersonaItem[]> {
+  const res = await fetch('/api/personas', { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error('Failed to fetch personas');
+  return res.json();
+}
+
+export async function savePersonaApi(
+  persona: Partial<UserPersonaItem> & { name: string }
+): Promise<UserPersonaItem> {
+  const res = await fetch('/api/personas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(persona),
+  });
+  if (!res.ok) throw new Error('Failed to save persona');
+  return res.json();
+}
+
+export async function deletePersonaApi(
+  personaId: string
+): Promise<{ deleted: boolean; id: string }> {
+  const res = await fetch(`/api/personas/${encodeURIComponent(personaId)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete persona');
+  return res.json();
+}
+
+export async function generateProblemApi(payload: {
+  query: string;
+  difficulty: string;
+  track: string;
+}): Promise<ProblemDetail> {
+  const res = await fetch('/api/problems/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to generate custom problem');
+  return res.json();
+}
+
 export async function sendArgonChatApi(payload: {
   problem_id: string;
   mode: string;
@@ -260,6 +320,7 @@ export async function sendArgonChatApi(payload: {
   test_results?: any[];
   transcript?: Array<{ role: string; text: string }>;
   session_id?: string;
+  persona_id?: string;
 }): Promise<{
   model: string;
   reply: string;

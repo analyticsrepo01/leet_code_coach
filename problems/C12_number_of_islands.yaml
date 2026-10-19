@@ -1,0 +1,101 @@
+id: C12
+slug: number-of-islands
+title: Number of Islands
+kind: coding
+track: cs
+leetcode: 200
+day: 1
+pattern:
+- graphs_bfs_dfs
+difficulty: medium
+post_training_relevance: 'The #1 most-asked graph connected-components interview problem.'
+statement: 'Given an `m x n` 2D binary grid `grid` which represents a map of `''1''`s
+  (land) and `''0''`s (water), return *the number of islands*.
+
+
+  An **island** is surrounded by water and is formed by connecting adjacent lands
+  horizontally or vertically.'
+examples:
+- input: grid = [["1","1","0"],["0","1","0"],["0","0","1"]]
+  output: '2'
+constraints:
+- 1 <= m, n <= 300
+- grid[i][j] is '0' or '1'.
+function_name: num_islands
+starter_code: "def num_islands(grid: list[list[str]]) -> int:\n    pass\n"
+tests:
+- args:
+  - - - '1'
+      - '1'
+      - '1'
+      - '1'
+      - '0'
+    - - '1'
+      - '1'
+      - '0'
+      - '1'
+      - '0'
+    - - '1'
+      - '1'
+      - '0'
+      - '0'
+      - '0'
+    - - '0'
+      - '0'
+      - '0'
+      - '0'
+      - '0'
+  expected: 1
+- args:
+  - - - '1'
+      - '1'
+      - '0'
+      - '0'
+      - '0'
+    - - '1'
+      - '1'
+      - '0'
+      - '0'
+      - '0'
+    - - '0'
+      - '0'
+      - '1'
+      - '0'
+      - '0'
+    - - '0'
+      - '0'
+      - '0'
+      - '1'
+      - '1'
+  expected: 3
+hidden_tests:
+- args:
+  - - - '0'
+      - '0'
+    - - '0'
+      - '0'
+  expected: 0
+- args:
+  - - - '1'
+  expected: 1
+compare: exact
+time_limit_ms: 2000
+hints:
+- Scan every cell `(r, c)`. Whenever you find a `'1'`, you have discovered a new island
+  (`islands += 1`).
+- Immediately run DFS or BFS from `(r, c)` to sink all connected `'1'`s in that island
+  to `'0'` so you don't count it again!
+optimal:
+  time: O(m * n)
+  space: O(m * n)
+follow_ups:
+- What if islands are added dynamically one cell at a time (Number of Islands II,
+  LC 305)? Which data structure handles dynamic connectivity?
+reference_solution: "def num_islands(grid: list[list[str]]) -> int:\n    if not grid:\n\
+  \        return 0\n    m, n = len(grid), len(grid[0])\n    islands = 0\n    def\
+  \ dfs(r: int, c: int) -> None:\n        if r < 0 or r >= m or c < 0 or c >= n or\
+  \ grid[r][c] != \"1\":\n            return\n        grid[r][c] = \"0\"\n       \
+  \ dfs(r + 1, c)\n        dfs(r - 1, c)\n        dfs(r, c + 1)\n        dfs(r, c\
+  \ - 1)\n    for r in range(m):\n        for c in range(n):\n            if grid[r][c]\
+  \ == \"1\":\n                islands += 1\n                dfs(r, c)\n    return\
+  \ islands\n"

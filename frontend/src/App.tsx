@@ -15,10 +15,12 @@ import {
   ShieldAlert,
   Sun,
   Moon,
+  UserCheck,
 } from 'lucide-react';
 import {
   fetchConfig,
   fetchDashboardStats,
+  fetchPersonas,
   fetchProblem,
   fetchProblems,
   fetchRevisionNotes,
@@ -33,6 +35,7 @@ import { ResultsPane } from './components/ResultsPane';
 import { CoachPane } from './components/CoachPane';
 import { ProblemList } from './components/ProblemList';
 import { ScorecardModal } from './components/ScorecardModal';
+import { PersonaModal } from './components/PersonaModal';
 
 function formatTimer(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -53,6 +56,8 @@ export const App: React.FC = () => {
     revisionNotes,
     unreadNotesCount,
     theme,
+    personas,
+    activePersonaId,
     setProblems,
     setCurrentProblem,
     setMode,
@@ -65,7 +70,12 @@ export const App: React.FC = () => {
     setLeftPaneTab,
     setRevisionNotes,
     toggleTheme,
+    setPersonas,
+    setShowPersonaModal,
   } = useAppStore();
+
+  const activePersona =
+    personas.find((p) => p.id === activePersonaId) || personas[0];
 
   const [needsToken, setNeedsToken] = useState<boolean>(
     () => !localStorage.getItem('livecoach_access_token')
@@ -87,12 +97,20 @@ export const App: React.FC = () => {
       const list = await fetchProblems();
       setProblems(list);
       if (list.length > 0) {
-        const defaultId = list.find((p) => p.id === 'P02')?.id || list[0].id;
+        const defaultId = list.find((p) => p.id === 'C01')?.id || list.find((p) => p.id === 'P02')?.id || list[0].id;
         const firstDetail = await fetchProblem(defaultId);
         setCurrentProblem(firstDetail);
       }
       const stats = await fetchDashboardStats();
       setDashboardStats(stats.solved_ids || [], stats.pattern_stats || {});
+      try {
+        const serverPersonas = await fetchPersonas();
+        if (serverPersonas && serverPersonas.length > 0) {
+          setPersonas(serverPersonas);
+        }
+      } catch (e) {
+        console.warn('Could not fetch server personas:', e);
+      }
       try {
         const notes = await fetchRevisionNotes();
         setRevisionNotes(notes);
@@ -321,8 +339,20 @@ export const App: React.FC = () => {
           })}
         </div>
 
-        {/* Right: Reference Notes Tab Shortcut, Timer & Progress */}
-        <div className="flex items-center gap-3">
+        {/* Right: Persona, Reference Notes Tab Shortcut, Timer & Progress */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowPersonaModal(true)}
+            title="Switch learner persona & save preferences"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 transition"
+          >
+            <span>{activePersona?.avatar_emoji || '🎓'}</span>
+            <span className="max-w-[140px] truncate">
+              {activePersona?.name || 'Persona'}
+            </span>
+            <UserCheck className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          </button>
+
           <button
             onClick={() =>
               setLeftPaneTab(leftPaneTab === 'notes' ? 'problem' : 'notes')
@@ -463,6 +493,7 @@ export const App: React.FC = () => {
       {/* Modals / Drawers */}
       <ProblemList />
       <ScorecardModal />
+      <PersonaModal />
     </div>
   );
 };

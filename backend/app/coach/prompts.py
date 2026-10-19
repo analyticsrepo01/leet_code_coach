@@ -72,9 +72,24 @@ PROBLEM TYPE: VOICE-ONLY THEORY CARD
 """
 
 
-def build_system_prompt(problem: Problem, mode: str) -> str:
+from typing import Optional
+from ..sessions import session_store
+
+
+def build_system_prompt(
+    problem: Problem, mode: str, persona_id: Optional[str] = None
+) -> str:
     firm = settings.target_firm or "quants related"
     base = SHARED_BASE_PROMPT.format(target_firm=firm)
+    persona = session_store.get_persona(persona_id)
+    persona_block = f"""
+[ACTIVE LEARNER / CANDIDATE PERSONA]
+Name: {persona.name} ({persona.avatar_emoji})
+Role / Grade / Background: {persona.role} (Experience Level: {persona.experience_level.upper()})
+Coding Background: {persona.coding_background}
+Coaching Style Instructions: {persona.coaching_style}
+IMPORTANT: Adapt your vocabulary, pacing, hints, and examples directly to this persona!
+"""
 
     mode_lower = (mode or "tutor").lower()
     if mode_lower == "interview":
@@ -124,4 +139,4 @@ Follow-ups:
 {f"Theory Rubric Points:\n{rubric_formatted}" if rubric_formatted else ""}
 {ref_section}
 """
-    return f"{base}\n{mode_block}\n{theory_block}\n{problem_context}".strip()
+    return f"{base}\n{persona_block}\n{mode_block}\n{theory_block}\n{problem_context}".strip()

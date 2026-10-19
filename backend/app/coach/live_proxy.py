@@ -59,8 +59,11 @@ def _build_live_config(
     problem: Problem,
     mode: str,
     resumption_handle: Optional[str] = None,
+    persona_id: Optional[str] = None,
 ) -> types.LiveConnectConfig:
-    system_text = build_system_prompt(problem, mode)
+    persona = session_store.get_persona(persona_id)
+    system_text = build_system_prompt(problem, mode, persona_id=persona.id)
+    voice_name = persona.preferred_voice or settings.live_voice or "Puck"
     resumption_cfg = (
         types.SessionResumptionConfig(handle=resumption_handle)
         if resumption_handle
@@ -74,7 +77,7 @@ def _build_live_config(
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                    voice_name=settings.live_voice or "Puck"
+                    voice_name=voice_name
                 )
             )
         ),
@@ -113,6 +116,7 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
     # Wait for initial `start` message (or default to P01 tutor if another message arrives first)
     problem_id = "P01"
     mode = "tutor"
+    persona_id = "persona-student"
     session_id: Optional[str] = None
     first_queued_msg: Optional[dict[str, Any]] = None
 
@@ -122,6 +126,7 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
         if parsed.get("type") == "start":
             problem_id = parsed.get("problem_id") or "P01"
             mode = parsed.get("mode") or "tutor"
+            persona_id = parsed.get("persona_id") or "persona-student"
             session_id = parsed.get("session_id")
         else:
             first_queued_msg = parsed
@@ -203,6 +208,7 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
                 problem=problem,
                 mode=mode,
                 resumption_handle=session_rec.resumption_handle,
+                persona_id=persona_id,
             )
             should_reconnect = False
 
@@ -248,9 +254,10 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
 
                     # Greet candidate on fresh session start
                     if not session_rec.resumption_handle:
+                        active_persona = session_store.get_persona(persona_id)
                         intro_prompt = (
-                            f"The candidate just opened problem {problem.id}: {problem.title} in {mode.upper()} mode. "
-                            "Give a brief 1-2 sentence greeting appropriate for the mode and invite them to state their initial thoughts."
+                            f"The learner ({active_persona.name}, {active_persona.role}) just opened problem {problem.id}: {problem.title} in {mode.upper()} mode. "
+                            "Give a brief 1-2 sentence greeting tailored to their persona and mode, and invite them to state their initial thoughts."
                         )
                         await live_session.send_client_content(
                             turns=types.Content(
@@ -263,7 +270,7 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
                     session_closed = asyncio.Event()
 
                     async def forward_to_gemini() -> None:
-                        nonlocal problem, mode, allow_solution, last_snapshot_code, should_reconnect
+                        nonlocal problem, mode, persona_id, allow_solution, last_snapshot_code, should_reconnect
                         while not stop_event.is_set() and not session_closed.is_set():
                             try:
                                 item = await asyncio.wait_for(
@@ -394,16 +401,19 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
                                             ),
                                             turn_complete=True,
                                         )
-                                elif action in ("switch_mode", "next_problem") or itype == "start":
+                                elif action in ("switch_mode", "next_problem", "switch_persona") or itype == "start":
                                     new_pid = item.get("problem_id") or problem.id
                                     new_mode = item.get("mode") or mode
+                                    new_persona_id = item.get("persona_id") or persona_id
                                     new_prob = problem_bank.get(new_pid)
                                     if new_prob:
                                         problem = new_prob
                                     mode = new_mode
+                                    persona_id = new_persona_id
                                     allow_solution = mode == "review"
                                     session_rec.problem_id = problem.id
                                     session_rec.mode = mode
+                                    session_rec.persona_id = persona_id
                                     session_rec.resumption_handle = None
                                     should_reconnect = True
                                     session_closed.set()

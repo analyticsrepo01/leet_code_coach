@@ -38,10 +38,118 @@ class RevisionNote(BaseModel):
     created_at: float = Field(default_factory=time.time)
 
 
+import json
+from pathlib import Path
+
+
+class UserPersona(BaseModel):
+    id: str = Field(default_factory=lambda: f"persona-{uuid.uuid4().hex[:8]}")
+    name: str
+    avatar_emoji: str = "🎓"
+    role: str = "CS Student / Programmer"
+    experience_level: str = "intermediate"  # "beginner" | "intermediate" | "advanced"
+    coding_background: str = ""
+    coaching_style: str = ""
+    preferred_mode: str = "tutor"  # "tutor" | "interview" | "review"
+    preferred_voice: str = "Puck"
+    preferred_track: str = "all"   # "all" | "cs" | "ds" | "ml" | "theory"
+    preferred_difficulty: str = "all"  # "all" | "easy" | "medium" | "hard"
+    preferred_theme: str = "dark"  # "dark" | "light"
+    is_builtin: bool = False
+    created_at: float = Field(default_factory=time.time)
+
+
+BUILTIN_PERSONAS: list[UserPersona] = [
+    UserPersona(
+        id="persona-student",
+        name="CS Student (Grade 14 / College)",
+        avatar_emoji="🎓",
+        role="Grade 14 / Undergrad CS Student",
+        experience_level="intermediate",
+        coding_background=(
+            "Studying Computer Science fundamentals in Python: arrays, strings, hash maps, "
+            "two pointers, binary search, recursion, BFS/DFS graphs, and dynamic programming."
+        ),
+        coaching_style=(
+            "Patient, encouraging mentor. Walk through small dry-run examples step-by-step, "
+            "build visual intuition before writing code, explain Big-O clearly, and ask friendly Socratic questions."
+        ),
+        preferred_mode="tutor",
+        preferred_voice="Puck",
+        preferred_track="cs",
+        preferred_difficulty="all",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
+    UserPersona(
+        id="persona-beginner",
+        name="Beginner / First-Time Coder",
+        avatar_emoji="🌱",
+        role="New to Python & Algorithms",
+        experience_level="beginner",
+        coding_background=(
+            "Learning Python syntax (loops, lists, dictionaries, sets, functions) and basic algorithmic thinking from scratch."
+        ),
+        coaching_style=(
+            "Super supportive, zero-jargon teacher. Explain Python syntax and built-in methods clearly with tiny 3-line examples, "
+            "celebrate small wins, and guide one small step at a time."
+        ),
+        preferred_mode="tutor",
+        preferred_voice="Puck",
+        preferred_track="cs",
+        preferred_difficulty="easy",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
+    UserPersona(
+        id="persona-swe",
+        name="Software Engineer (General LeetCode)",
+        avatar_emoji="💻",
+        role="Software Engineer / Interview Prep",
+        experience_level="intermediate",
+        coding_background=(
+            "Practicing Blind 75 / NeetCode 150 patterns for software engineering interviews in Python."
+        ),
+        coaching_style=(
+            "Practical SWE interview coach. Focus on clean modular Python, boundary edge cases, "
+            "optimal time/space trade-offs, and clear verbal problem breakdown."
+        ),
+        preferred_mode="tutor",
+        preferred_voice="Puck",
+        preferred_track="all",
+        preferred_difficulty="medium",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
+    UserPersona(
+        id="persona-quant",
+        name="Quant & ML Research Candidate",
+        avatar_emoji="⚡",
+        role="Quant DS & LLM Post-Training",
+        experience_level="advanced",
+        coding_background=(
+            "Experienced in algorithms, NumPy vectorization, streaming statistics, numerical stability, "
+            "and LLM post-training (DPO, GRPO, FlashAttention, KV cache)."
+        ),
+        coaching_style=(
+            "Rigorous Socratic technical interviewer. Probe algorithmic invariants, cache locality, "
+            "streaming constraints, numerical stability, and mathematical derivations."
+        ),
+        preferred_mode="interview",
+        preferred_voice="Puck",
+        preferred_track="ds",
+        preferred_difficulty="all",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
+]
+
+
 class SessionRecord(BaseModel):
     session_id: str = Field(default_factory=lambda: f"sess-{uuid.uuid4().hex[:10]}")
     problem_id: str
     mode: str = "tutor"
+    persona_id: str = "persona-student"
     started_at: float = Field(default_factory=time.time)
     hints_used: list[int] = Field(default_factory=list)
     runs_count: int = 0
@@ -60,6 +168,8 @@ class SessionStore:
         self._pattern_stats: dict[str, dict[str, int]] = {}
         self._scorecards: list[Scorecard] = []
         self._notes: list[RevisionNote] = []
+        self._personas: dict[str, UserPersona] = {p.id: p.model_copy() for p in BUILTIN_PERSONAS}
+        self._personas_file = Path("/tmp/livecoach_personas.json")
         self._fs_client: Any = None
         if settings.use_firestore:
             try:
@@ -70,6 +180,7 @@ class SessionStore:
                 )
             except Exception as e:
                 print(f"[SessionStore] Firestore init failed, using memory: {e}")
+        self._load_persisted_personas()
 
     def create_or_get(
         self,
@@ -221,6 +332,67 @@ class SessionStore:
             "revision_notes": [n.model_dump() for n in self._notes],
             "active_sessions": len(self._sessions),
         }
+
+    def list_personas(self) -> list[dict[str, Any]]:
+        builtin_ids = {p.id for p in BUILTIN_PERSONAS}
+        builtins = [self._personas[p.id].model_dump() for p in BUILTIN_PERSONAS if p.id in self._personas]
+        customs = [
+            p.model_dump()
+            for pid, p in sorted(self._personas.items(), key=lambda kv: kv[1].created_at, reverse=True)
+            if pid not in builtin_ids
+        ]
+        return builtins + customs
+
+    def get_persona(self, persona_id: Optional[str] = None) -> UserPersona:
+        if persona_id and persona_id in self._personas:
+            return self._personas[persona_id]
+        return self._personas.get("persona-student") or BUILTIN_PERSONAS[0]
+
+    def save_persona(self, persona: UserPersona) -> UserPersona:
+        builtin_ids = {p.id for p in BUILTIN_PERSONAS}
+        if persona.id in builtin_ids:
+            persona.is_builtin = True
+        self._personas[persona.id] = persona
+        self._persist_personas()
+        return persona
+
+    def delete_persona(self, persona_id: str) -> bool:
+        builtin_ids = {p.id for p in BUILTIN_PERSONAS}
+        if persona_id in builtin_ids or persona_id not in self._personas:
+            return False
+        del self._personas[persona_id]
+        if self._fs_client:
+            try:
+                self._fs_client.collection("livecoach_personas").document(persona_id).delete()
+            except Exception:
+                pass
+        self._persist_personas()
+        return True
+
+    def _load_persisted_personas(self) -> None:
+        if self._personas_file.exists():
+            try:
+                data = json.loads(self._personas_file.read_text(encoding="utf-8"))
+                for item in data:
+                    p = UserPersona.model_validate(item)
+                    self._personas[p.id] = p
+            except Exception as e:
+                print(f"[SessionStore] Could not read personas file: {e}")
+
+    def _persist_personas(self) -> None:
+        try:
+            payload = [p.model_dump() for p in self._personas.values()]
+            self._personas_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        except Exception as e:
+            print(f"[SessionStore] Could not write personas file: {e}")
+        if self._fs_client:
+            try:
+                for p in self._personas.values():
+                    self._fs_client.collection("livecoach_personas").document(p.id).set(
+                        p.model_dump()
+                    )
+            except Exception as e:
+                print(f"[SessionStore] Firestore persona write warning: {e}")
 
     def _persist(self, rec: SessionRecord) -> None:
         if not self._fs_client:

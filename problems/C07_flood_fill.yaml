@@ -1,0 +1,107 @@
+id: C07
+slug: flood-fill
+title: Flood Fill
+kind: coding
+track: cs
+leetcode: 733
+day: 1
+pattern:
+- graphs_bfs_dfs
+difficulty: easy
+post_training_relevance: Friendly introduction to 2D grid traversal using DFS or BFS
+  — the foundation for all graph and matrix problems.
+statement: 'You are given an `m x n` integer grid `image` where `image[i][j]` represents
+  the pixel value of the image. You are also given three integers `sr`, `sc`, and
+  `color`. Perform a **flood fill** on the image starting from the pixel `image[sr][sc]`:
+
+
+  Replace the starting pixel''s color and all 4-directionally connected pixels of
+  the **same original color** with `color`, and return the modified `image`.'
+examples:
+- input: image = [[1,1,1],[1,1,0],[1,0,1]], sr = 1, sc = 1, color = 2
+  output: '[[2,2,2],[2,2,0],[2,0,1]]'
+- input: image = [[0,0,0],[0,0,0]], sr = 0, sc = 0, color = 0
+  output: '[[0,0,0],[0,0,0]]'
+constraints:
+- 1 <= m, n <= 50
+- 0 <= sr < m, 0 <= sc < n
+function_name: flood_fill
+starter_code: "def flood_fill(image: list[list[int]], sr: int, sc: int, color: int)\
+  \ -> list[list[int]]:\n    pass\n"
+tests:
+- args:
+  - - - 1
+      - 1
+      - 1
+    - - 1
+      - 1
+      - 0
+    - - 1
+      - 0
+      - 1
+  - 1
+  - 1
+  - 2
+  expected:
+  - - 2
+    - 2
+    - 2
+  - - 2
+    - 2
+    - 0
+  - - 2
+    - 0
+    - 1
+- args:
+  - - - 0
+      - 0
+      - 0
+    - - 0
+      - 0
+      - 0
+  - 0
+  - 0
+  - 0
+  expected:
+  - - 0
+    - 0
+    - 0
+  - - 0
+    - 0
+    - 0
+hidden_tests:
+- args:
+  - - - 1
+      - 0
+    - - 0
+      - 1
+  - 0
+  - 0
+  - 5
+  expected:
+  - - 5
+    - 0
+  - - 0
+    - 1
+compare: exact
+time_limit_ms: 2000
+hints:
+- Record `orig = image[sr][sc]`. Watch out for the edge case where `orig == color`
+  — if you don't return early, what happens?
+- If `orig == color`, nothing changes (and DFS would loop infinitely without a visited
+  set!), so return `image` immediately.
+- Otherwise, run DFS/BFS from `(sr, sc)`, recoloring each cell with `orig` to `color`
+  and visiting `(r+1,c), (r-1,c), (r,c+1), (r,c-1)`.
+optimal:
+  time: O(m * n)
+  space: O(m * n)
+follow_ups:
+- Why does changing `image[r][c] = color` act as your `visited` marker so LONG as
+  `orig != color`?
+reference_solution: "def flood_fill(image: list[list[int]], sr: int, sc: int, color:\
+  \ int) -> list[list[int]]:\n    orig = image[sr][sc]\n    if orig == color:\n  \
+  \      return image\n    m, n = len(image), len(image[0])\n    def dfs(r: int, c:\
+  \ int) -> None:\n        if r < 0 or r >= m or c < 0 or c >= n or image[r][c] !=\
+  \ orig:\n            return\n        image[r][c] = color\n        dfs(r + 1, c)\n\
+  \        dfs(r - 1, c)\n        dfs(r, c + 1)\n        dfs(r, c - 1)\n    dfs(sr,\
+  \ sc)\n    return image\n"

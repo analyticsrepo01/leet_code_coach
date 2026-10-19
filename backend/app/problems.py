@@ -108,7 +108,9 @@ class ProblemBank:
                 continue
             if "track" not in raw:
                 pid = str(raw.get("id", ""))
-                if pid.startswith("M"):
+                if pid.startswith("C") or pid.startswith("L"):
+                    raw["track"] = "cs"
+                elif pid.startswith("M"):
                     raw["track"] = "ml"
                 elif pid.startswith("T"):
                     raw["track"] = "theory"
@@ -120,13 +122,36 @@ class ProblemBank:
 
     def list_all(self) -> list[Problem]:
         def sort_key(p: Problem) -> tuple[int, str]:
-            order = {"P": 0, "M": 1, "T": 2}.get(p.id[:1], 3)
+            order = {"C": 0, "P": 1, "M": 2, "T": 3, "L": 4}.get(p.id[:1], 5)
             return (order, p.id)
 
         return sorted(self._problems.values(), key=sort_key)
 
     def get(self, problem_id: str) -> Optional[Problem]:
         return self._problems.get(problem_id)
+
+    def next_custom_id(self) -> str:
+        existing_nums = []
+        for pid in self._problems:
+            if pid.startswith("C") and pid[1:].isdigit():
+                existing_nums.append(int(pid[1:]))
+        next_num = (max(existing_nums) + 1) if existing_nums else 21
+        return f"C{next_num:02d}"
+
+    def add_problem(self, prob: Problem, persist: bool = True) -> Problem:
+        self._problems[prob.id] = prob
+        if persist:
+            try:
+                settings.problems_dir.mkdir(parents=True, exist_ok=True)
+                safe_slug = prob.slug.replace("-", "_").replace(" ", "_")[:40]
+                out_path = settings.problems_dir / f"{prob.id}_{safe_slug}.yaml"
+                with open(out_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(
+                        prob.model_dump(), f, sort_keys=False, allow_unicode=True
+                    )
+            except Exception as e:
+                print(f"[ProblemBank] Could not persist custom problem YAML: {e}")
+        return prob
 
 
 problem_bank = ProblemBank()

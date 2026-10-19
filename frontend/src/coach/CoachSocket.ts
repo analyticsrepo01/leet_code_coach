@@ -43,6 +43,7 @@ class CoachSocketManager {
         type: 'start',
         problem_id: targetProblemId,
         mode: targetMode,
+        persona_id: store.activePersonaId,
         session_id: store.sessionId,
       });
       // Send initial code snapshot after short delay
@@ -143,6 +144,7 @@ class CoachSocketManager {
           text: t.text,
         })),
         session_id: store.sessionId,
+        persona_id: store.activePersonaId,
       });
 
       store.appendTranscript('coach', `🧠 [Gemini 4 Argon] ${res.reply}`);
@@ -234,7 +236,11 @@ class CoachSocketManager {
     });
   }
 
-  public switchContext(problemId: string, mode: CoachMode): void {
+  public switchContext(
+    problemId: string,
+    mode: CoachMode,
+    personaId?: string
+  ): void {
     if (!this.isConnected) return;
     coachAudio.flushPlayer();
     this.sendJson({
@@ -242,6 +248,7 @@ class CoachSocketManager {
       action: 'switch_mode',
       problem_id: problemId,
       mode,
+      persona_id: personaId || useAppStore.getState().activePersonaId,
     });
   }
 

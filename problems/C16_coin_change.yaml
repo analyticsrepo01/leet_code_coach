@@ -1,0 +1,80 @@
+id: C16
+slug: coin-change
+title: Coin Change
+kind: coding
+track: cs
+leetcode: 322
+day: 1
+pattern:
+- dynamic_programming
+difficulty: medium
+post_training_relevance: The canonical Unbounded Knapsack DP problem — illustrates
+  why greedy fails and bottom-up tabulation succeeds.
+statement: 'You are given an integer array `coins` representing coins of different
+  denominations and an integer `amount` representing a total amount of money.
+
+
+  Return *the fewest number of coins that you need to make up that amount*. If that
+  amount of money cannot be made up by any combination of the coins, return `-1`.'
+examples:
+- input: coins = [1,2,5], amount = 11
+  output: '3'
+  explanation: 11 = 5 + 5 + 1
+- input: coins = [2], amount = 3
+  output: '-1'
+- input: coins = [1], amount = 0
+  output: '0'
+constraints:
+- 1 <= len(coins) <= 12
+- 0 <= amount <= 10^4
+function_name: coin_change
+starter_code: "def coin_change(coins: list[int], amount: int) -> int:\n    pass\n"
+tests:
+- args:
+  - - 1
+    - 2
+    - 5
+  - 11
+  expected: 3
+- args:
+  - - 2
+  - 3
+  expected: -1
+- args:
+  - - 1
+  - 0
+  expected: 0
+hidden_tests:
+- args:
+  - - 1
+    - 3
+    - 4
+  - 6
+  expected: 2
+- args:
+  - - 2
+    - 5
+    - 10
+    - 1
+  - 27
+  expected: 4
+compare: exact
+time_limit_ms: 2000
+hints:
+- Why does greedy fail on `coins = [1, 3, 4], amount = 6`? Greedy picks `4 + 1 + 1`
+  (3 coins) instead of `3 + 3` (2 coins)!
+- Create a DP array `dp = [amount + 1] * (amount + 1)` with base case `dp[0] = 0`.
+- For every `a` from `1` to `amount` and every `c` in `coins`, if `a >= c`, update
+  `dp[a] = min(dp[a], dp[a - c] + 1)`.
+optimal:
+  time: O(amount * len(coins))
+  space: O(amount)
+follow_ups:
+- How would you count the NUMBER of distinct combinations that sum to `amount` (Coin
+  Change II, LC 518), and why does the loop order (`for c in coins` outside vs inside)
+  matter?
+reference_solution: "def coin_change(coins: list[int], amount: int) -> int:\n    INF\
+  \ = amount + 1\n    dp = [INF] * (amount + 1)\n    dp[0] = 0\n    for a in range(1,\
+  \ amount + 1):\n        for c in coins:\n            if a >= c and dp[a - c] + 1\
+  \ < dp[a]:\n                dp[a] = dp[a - c] + 1\n    return dp[amount] if dp[amount]\
+  \ <= amount else -1\n"

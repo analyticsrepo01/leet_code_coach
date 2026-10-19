@@ -1,0 +1,79 @@
+id: C11
+slug: koko-eating-bananas
+title: Koko Eating Bananas (Binary Search on Answer)
+kind: coding
+track: cs
+leetcode: 875
+day: 1
+pattern:
+- binary_search
+difficulty: medium
+post_training_relevance: Teaches Parametric Binary Search (binary search over a monotonic
+  feasibility predicate) — a favorite interview pattern.
+statement: 'Koko loves to eat bananas. There are `n` piles of bananas, the `i`-th
+  pile has `piles[i]` bananas. The guards have gone and will come back in `h` hours.
+
+
+  Koko can decide her bananas-per-hour eating speed of `k`. Each hour, she chooses
+  some pile of bananas and eats `k` bananas from that pile (if the pile has less than
+  `k` bananas, she eats all of them and won''t eat any more bananas during that hour).
+
+
+  Return *the minimum integer `k` such that she can eat all the bananas within `h`
+  hours*.'
+examples:
+- input: piles = [3,6,7,11], h = 8
+  output: '4'
+- input: piles = [30,11,23,4,20], h = 5
+  output: '30'
+constraints:
+- 1 <= len(piles) <= 10^4
+- len(piles) <= h <= 10^9
+function_name: min_eating_speed
+starter_code: "def min_eating_speed(piles: list[int], h: int) -> int:\n    pass\n"
+tests:
+- args:
+  - - 3
+    - 6
+    - 7
+    - 11
+  - 8
+  expected: 4
+- args:
+  - - 30
+    - 11
+    - 23
+    - 4
+    - 20
+  - 5
+  expected: 30
+- args:
+  - - 30
+    - 11
+    - 23
+    - 4
+    - 20
+  - 6
+  expected: 23
+hidden_tests:
+- args:
+  - - 1000000000
+  - 2
+  expected: 500000000
+compare: exact
+time_limit_ms: 2000
+hints:
+- Instead of searching an array index, binary search the speed `k` in `[1, max(piles)]`!
+- At speed `k`, how many hours does pile `p` take? `ceil(p / k)`, which in integer
+  arithmetic is `(p + k - 1) // k`.
+- If `sum((p + k - 1) // k for p in piles) <= h`, speed `k` is feasible (`hi = k`);
+  otherwise it is too slow (`lo = k + 1`).
+optimal:
+  time: O(n log(max(piles)))
+  space: O(1)
+follow_ups:
+- How does this exact template solve Capacity To Ship Packages Within D Days (LC 1011)?
+reference_solution: "def min_eating_speed(piles: list[int], h: int) -> int:\n    lo,\
+  \ hi = 1, max(piles)\n    while lo < hi:\n        mid = (lo + hi) // 2\n       \
+  \ hours = sum((p + mid - 1) // mid for p in piles)\n        if hours <= h:\n   \
+  \         hi = mid\n        else:\n            lo = mid + 1\n    return lo\n"

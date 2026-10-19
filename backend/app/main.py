@@ -10,14 +10,16 @@ from google.genai import types
 import google.auth
 from pydantic import BaseModel, Field
 
+import copy
+import re
 from .auth import get_vertex_access_token, verify_http_token
 from .coach.argon_coach import chat_with_argon, generate_with_argon
 from .coach.live_proxy import handle_coach_websocket
 from .coach.prompts import build_system_prompt
 from .config import settings
-from .problems import problem_bank
+from .problems import ExampleItem, OptimalComplexity, Problem, TestCaseItem, problem_bank
 from .resources import search_learning_resources
-from .sessions import RevisionNote, Scorecard, session_store
+from .sessions import RevisionNote, Scorecard, UserPersona, session_store
 
 
 @asynccontextmanager
@@ -29,7 +31,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="LiveCoach API", version="1.2.0", lifespan=lifespan)
+app = FastAPI(title="LiveCoach API", version="1.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,11 +61,19 @@ class SynthesizeNoteRequest(BaseModel):
     code: str = ""
     custom_topic: Optional[str] = None
     custom_prompt: Optional[str] = None
+    persona_id: Optional[str] = None
 
 
 class TutorialNoteRequest(BaseModel):
     topic: str
     problem_id: Optional[str] = None
+    persona_id: Optional[str] = None
+
+
+class GenerateProblemRequest(BaseModel):
+    query: str
+    difficulty: str = "medium"
+    track: str = "cs"
 
 
 class ChatRequest(BaseModel):
@@ -75,6 +85,7 @@ class ChatRequest(BaseModel):
     test_results: Optional[list[dict[str, Any]]] = None
     transcript: Optional[list[dict[str, Any]]] = None
     session_id: Optional[str] = None
+    persona_id: Optional[str] = None
 
 
 @app.get("/healthz")
@@ -136,6 +147,133 @@ async def list_problems(
     if day is not None:
         items = [p for p in items if p.day == day]
     return [p.to_list_item() for p in items]
+
+
+@app.post("/api/problems/generate", dependencies=[Depends(verify_http_token)])
+async def generate_new_problem(req: GenerateProblemRequest) -> dict[str, Any]:
+    if not problem_bank.list_all():
+        problem_bank.load()
+    query = req.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Problem query is required")
+
+    next_id = problem_bank.next_custom_id()
+    diff = req.difficulty.lower() if req.difficulty.lower() in ("easy", "medium", "hard") else "medium"
+    track = req.track.lower() if req.track.lower() in ("cs", "ds", "ml") else "cs"
+
+    prompt = f"""You are Gemini 4 Argon generating a complete, runnable Python LeetCode-style problem card for LiveCoach.
+Requested Problem / Topic: {query}
+Target Difficulty: {diff}
+Track: {track}
+
+IMPORTANT RULES FOR PYTHON EXECUTION:
+- Use standard Python built-in types (`list`, `str`, `int`, `float`, `bool`, `dict`) for function arguments and return values so JSON test cases serialize directly without custom TreeNode/ListNode classes (represent trees/graphs/linked lists as arrays or adjacency lists if needed).
+- Provide a clean `function_name` (snake_case), `starter_code` with type annotations and `pass`, and a working `reference_solution` defining that exact `function_name`.
+- Provide 3 `tests` (visible) and 2 `hidden_tests` where `args` is a JSON array of positional arguments to pass to `function_name(*args)` and `expected` is the exact return value.
+
+Return a valid JSON object with:
+- "title": string (e.g. "Trapping Rain Water")
+- "slug": string (kebab-case, e.g. "trapping-rain-water")
+- "leetcode": integer or null (e.g. 42)
+- "pattern": array of 1-3 snake_case pattern tags (e.g. ["two_pointers", "dynamic_programming"])
+- "difficulty": "{diff}"
+- "post_training_relevance": 1-sentence explanation of why this problem matters for CS fundamentals, interviews, or ML systems
+- "statement": clear markdown problem description
+- "examples": array of 2 objects {{"input": "...", "output": "...", "explanation": "..."}}
+- "constraints": array of 2-3 constraint strings
+- "function_name": snake_case function name
+- "starter_code": Python starter function signature with docstring/comment and `pass`
+- "reference_solution": complete, bug-free optimal Python implementation of `function_name`
+- "tests": array of 3 objects {{"args": [...], "expected": ...}}
+- "hidden_tests": array of 2 objects {{"args": [...], "expected": ...}}
+- "hints": array of 3 progressive Socratic hints
+- "optimal": {{"time": "O(...)", "space": "O(...)"}}
+- "follow_ups": array of 2 follow-up interview questions
+"""
+    try:
+        raw_json = await generate_with_argon(
+            prompt, response_mime_type="application/json", temperature=0.2
+        )
+        parsed = json.loads(raw_json or "{}")
+        fn_name = str(parsed.get("function_name") or "solve")
+        ref_sol = str(parsed.get("reference_solution") or f"def {fn_name}(x):\n    return x\n")
+        title = str(parsed.get("title") or query.title())
+        slug = re.sub(r"[^a-z0-9-]+", "-", str(parsed.get("slug") or title).lower()).strip("-") or "custom-problem"
+
+        # Auto-verify expected outputs using reference_solution so test cases are 100% consistent
+        ns: dict[str, Any] = {}
+        try:
+            exec(ref_sol, ns)
+        except Exception:
+            pass
+        ref_fn = ns.get(fn_name)
+
+        def build_tests(raw_list: list[Any]) -> list[TestCaseItem]:
+            items: list[TestCaseItem] = []
+            for tc in raw_list or []:
+                if not isinstance(tc, dict) or "args" not in tc:
+                    continue
+                args = tc["args"] if isinstance(tc["args"], list) else [tc["args"]]
+                expected = tc.get("expected")
+                if callable(ref_fn):
+                    try:
+                        expected = ref_fn(*copy.deepcopy(args))
+                    except Exception:
+                        pass
+                items.append(TestCaseItem(args=args, expected=expected))
+            return items
+
+        tests = build_tests(parsed.get("tests") or [])
+        hidden_tests = build_tests(parsed.get("hidden_tests") or [])
+        if not tests:
+            tests = [TestCaseItem(args=[1], expected=ref_fn(1) if callable(ref_fn) else 1)]
+
+        opt_raw = parsed.get("optimal") or {}
+        prob = Problem(
+            id=next_id,
+            slug=slug,
+            title=title,
+            kind="coding",
+            track=track,
+            leetcode=parsed.get("leetcode") if isinstance(parsed.get("leetcode"), int) else None,
+            day=1,
+            pattern=[str(p) for p in (parsed.get("pattern") or ["algorithms"])],
+            difficulty=str(parsed.get("difficulty") or diff),
+            post_training_relevance=str(
+                parsed.get("post_training_relevance")
+                or "Core algorithmic problem-solving & interview pattern."
+            ),
+            statement=str(parsed.get("statement") or f"Solve {title}."),
+            examples=[
+                ExampleItem(
+                    input=str(ex.get("input", "")),
+                    output=str(ex.get("output", "")),
+                    explanation=ex.get("explanation"),
+                )
+                for ex in (parsed.get("examples") or [])
+                if isinstance(ex, dict)
+            ],
+            constraints=[str(c) for c in (parsed.get("constraints") or [])],
+            function_name=fn_name,
+            starter_code=str(parsed.get("starter_code") or f"def {fn_name}():\n    pass\n"),
+            tests=tests,
+            hidden_tests=hidden_tests,
+            compare="exact",
+            time_limit_ms=2000,
+            hints=[str(h) for h in (parsed.get("hints") or ["Break the problem into smaller cases."])],
+            optimal=OptimalComplexity(
+                time=str(opt_raw.get("time", "O(n)")),
+                space=str(opt_raw.get("space", "O(n)")),
+            ),
+            follow_ups=[str(f) for f in (parsed.get("follow_ups") or [])],
+            reference_solution=ref_sol,
+        )
+        problem_bank.add_problem(prob, persist=True)
+        return prob.to_public_dict()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate problem '{query}': {e}"
+        )
 
 
 @app.get("/api/problems/{problem_id}", dependencies=[Depends(verify_http_token)])
@@ -388,6 +526,23 @@ Return a JSON object with:
     return saved.model_dump()
 
 
+@app.get("/api/personas", dependencies=[Depends(verify_http_token)])
+async def list_personas_endpoint() -> list[dict[str, Any]]:
+    return session_store.list_personas()
+
+
+@app.post("/api/personas", dependencies=[Depends(verify_http_token)])
+async def save_persona_endpoint(persona: UserPersona) -> dict[str, Any]:
+    saved = session_store.save_persona(persona)
+    return saved.model_dump()
+
+
+@app.delete("/api/personas/{persona_id}", dependencies=[Depends(verify_http_token)])
+async def delete_persona_endpoint(persona_id: str) -> dict[str, Any]:
+    deleted = session_store.delete_persona(persona_id)
+    return {"deleted": deleted, "id": persona_id}
+
+
 @app.post("/api/chat", dependencies=[Depends(verify_http_token)])
 async def argon_chat_endpoint(req: ChatRequest) -> dict[str, Any]:
     if not problem_bank.list_all():
@@ -403,6 +558,7 @@ async def argon_chat_endpoint(req: ChatRequest) -> dict[str, Any]:
             test_results=req.test_results,
             transcript=req.transcript,
             session_id=req.session_id,
+            persona_id=req.persona_id,
         )
         return res
     except Exception as e:
