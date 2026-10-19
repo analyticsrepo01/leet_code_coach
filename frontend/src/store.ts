@@ -178,7 +178,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   solvedIds: [],
   patternStats: {},
-  targetFirm: 'Quant & AI Research',
+  targetFirm: 'quants related',
   theme:
     (typeof localStorage !== 'undefined' &&
       (localStorage.getItem('livecoach_theme') as 'dark' | 'light')) ||

@@ -73,7 +73,7 @@ PROBLEM TYPE: VOICE-ONLY THEORY CARD
 
 
 def build_system_prompt(problem: Problem, mode: str) -> str:
-    firm = settings.target_firm or "a top quant trading firm"
+    firm = settings.target_firm or "quants related"
     base = SHARED_BASE_PROMPT.format(target_firm=firm)
 
     mode_lower = (mode or "tutor").lower()

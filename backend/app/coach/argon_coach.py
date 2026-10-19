@@ -52,7 +52,7 @@ async def chat_with_argon(
     transcript: Optional[list[dict[str, Any]]] = None,
     session_id: Optional[str] = None,
 ) -> dict[str, Any]:
-    firm = settings.target_firm or "a top quant trading firm"
+    firm = settings.target_firm or "quants related"
     mode_lower = (mode or "tutor").lower()
     msg_lower = user_message.lower()
     unlock_solution = (

@@ -8,8 +8,8 @@ pattern:
 - numerics
 - theory
 difficulty: medium
-post_training_relevance: Explicitly cited in top quant trading quant AI's ML research interview
-  guide.
+post_training_relevance: Explicitly cited in quants related ML research interview
+  guides.
 statement: 'Answer two optimization questions from first principles:
 
   1. Write the update equations for **Adam with $L_2$ regularization** versus **AdamW

@@ -9,7 +9,7 @@ pattern:
 - attention
 - theory
 difficulty: medium
-post_training_relevance: top quant trading quant AI & top labs heavily test GPU memory hierarchy
+post_training_relevance: Quants related & ML systems interviews heavily test GPU memory hierarchy
   (HBM vs SRAM) and exact KV-cache byte arithmetic.
 statement: 'Answer three systems/architecture questions out loud:
 

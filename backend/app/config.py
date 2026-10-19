@@ -23,7 +23,7 @@ class Settings(BaseModel):
 
     use_firestore: bool = os.getenv("USE_FIRESTORE", "false").lower() == "true"
     access_token: str = os.getenv("ACCESS_TOKEN", "leetcode2026")
-    target_firm: str = os.getenv("TARGET_FIRM", "a top quant trading firm")
+    target_firm: str = os.getenv("TARGET_FIRM", "quants related")
 
     problems_dir: Path = Path(
         os.getenv(

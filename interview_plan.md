@@ -2,7 +2,7 @@
 
 Two artifacts in one file:
 
-- **Part A:** a 2-day prep plan for a quant trading firm post-training (ML research) first round.
+- **Part A:** a 2-day prep plan for a quants related post-training (ML research) first round.
 - **Part B:** a build spec for **LiveCoach**, a personal LeetCode-style web app on Cloud Run. A Gemini Live API tutor watches my code, hears me talk through my reasoning, and coaches me by voice and chat.
 
 > **For the building agent (agy):** Part B is the implementation brief. Build the **MVP (section B10)** first, deploy it, then add the extras. Where this doc names a Gemini model or SDK call, **check it against the current Gemini Live API docs** and keep model IDs in config, not hard-coded.
@@ -267,7 +267,7 @@ Two tracks. Track 1 covers the quant data-structure patterns quant firms test. T
 | P02 | Subarray Sum Equals K | 560 | prefix sum + hash map | the key prefix-sum trick |
 | P03 | Group Anagrams | 49 | hash map (canonical key) | canonicalizing for exact-dup detection in SFT data |
 | P04 | Max Drawdown of P&L (custom) | — | running max | running-state; also "worst eval regression across checkpoints" |
-| P05 | Best Time to Buy/Sell Stock I & II | 121/122 | one pass / greedy | guaranteed trading-firm favorite |
+| P05 | Best Time to Buy/Sell Stock I & II | 121/122 | one pass / greedy | guaranteed quants related favorite |
 | P06 | Product of Array Except Self | 238 | prefix/suffix | prefix tricks without division |
 | P07 | Two Sum II + 3Sum | 167/15 | two pointers | sorted-array reasoning |
 | P08 | Longest Substring Without Repeating Chars | 3 | sliding window + hash map | variable-window template |
@@ -397,7 +397,7 @@ CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --ws-ping-interval 2
 | `LIVE_VOICE` | e.g. `Puck` | |
 | `USE_FIRESTORE` | `false` | MVP uses in-memory |
 | `ACCESS_TOKEN` | random string | only if not using IAP; checked on `/ws` and `/api` |
-| `TARGET_FIRM` | e.g. `a top quant trading firm` | substituted into `{TARGET_FIRM}` in prompts; keep the real firm name out of the repo (set only on Cloud Run) |
+| `TARGET_FIRM` | e.g. `quants related` | substituted into `{TARGET_FIRM}` in prompts; keep any firm name out of the repo |
 
 ### deploy.sh
 ```bash
@@ -424,7 +424,7 @@ gcloud run deploy livecoach \
   --min-instances 1 --max-instances 2 \
   --cpu 1 --memory 1Gi --concurrency 10 \
   --no-cpu-throttling \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$REGION,LIVE_MODEL=${LIVE_MODEL:?set LIVE_MODEL},LIVE_VOICE=${LIVE_VOICE:-Puck},TARGET_FIRM="${TARGET_FIRM:-a top quant trading firm}" \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$REGION,LIVE_MODEL=${LIVE_MODEL:?set LIVE_MODEL},LIVE_VOICE=${LIVE_VOICE:-Puck},TARGET_FIRM="${TARGET_FIRM:-quants related}" \
   --no-allow-unauthenticated
 ```
 **Why these flags:**
