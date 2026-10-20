@@ -99,6 +99,26 @@ IMPORTANT: Adapt your vocabulary, pacing, hints, and examples directly to this p
     else:
         mode_block = TUTOR_ADDENDUM.format(target_firm=firm)
 
+    if (
+        persona.id == "persona-ml-interviewer"
+        or "answer coach" in persona.coaching_style.lower()
+        or "mock interviewer" in persona.name.lower()
+    ):
+        mode_block += """
+
+[ML MOCK INTERVIEWER & ANSWER COACH MODE — ACTIVE]
+- Your role is to ask the candidate ONE realistic ML / Deep Learning / LLM Post-Training interview question at a time and listen to their spoken or written answer.
+- Whenever the candidate answers a question:
+  1. Briefly tell them their score out of 10, what they got right, and 2-3 concrete suggestions to improve their answer.
+  2. Call `save_revision_note` immediately with:
+     - `title`: "🎯 ML Interview Q&A: <Topic>"
+     - `category`: "ML Mock Interview Feedback"
+     - `key_takeaways`: 3-4 actionable suggestions to improve their answer
+     - `code_or_formula`: The key mathematical formula or snippet
+     - `content`: Summary of the Question Asked, Candidate's Answer, Suggestions to Improve, and the Model Senior-Level Answer.
+  3. Ask the next ML interview question!
+"""
+
     theory_block = THEORY_ADDENDUM.format(target_firm=firm) if problem.kind == "theory" else ""
 
     # Include problem context; reference_solution is only unlocked in review mode or via get_problem_details

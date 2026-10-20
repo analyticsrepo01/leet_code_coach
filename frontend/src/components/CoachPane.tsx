@@ -42,6 +42,9 @@ export const CoachPane: React.FC = () => {
     setIsSynthesizingNote,
     setLeftPaneTab,
     appendTranscript,
+    activePersonaId,
+    setActivePersonaId,
+    setMode,
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
@@ -337,6 +340,37 @@ export const CoachPane: React.FC = () => {
 
       {/* Quick Prompts */}
       <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto">
+        <button
+          onClick={() => {
+            if (activePersonaId !== 'persona-ml-interviewer') {
+              setActivePersonaId('persona-ml-interviewer');
+              setMode('interview');
+            }
+            runArgonChatPrompt(
+              'Ask me one realistic ML / LLM interview question right now. After I answer, grade my answer, give me concrete suggestions to improve, and save a note of my answer and feedback.'
+            );
+          }}
+          disabled={isArgonThinking}
+          title="Switch to ML Mock Interviewer & get asked an ML interview question"
+          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-200 border border-indigo-500/40 disabled:opacity-50"
+        >
+          <span>🎯 Ask ML Question</span>
+        </button>
+        <button
+          onClick={() => {
+            if (activePersonaId !== 'persona-ml-interviewer') {
+              setActivePersonaId('persona-ml-interviewer');
+            }
+            runArgonChatPrompt(
+              'Please evaluate my last answer: give me a score out of 10, note what I got right, give concrete suggestions to improve my answer, show a crisp model answer, and save this Q&A feedback into my Reference Notes.'
+            );
+          }}
+          disabled={isArgonThinking}
+          title="Grade your last answer, get suggestions to improve, and save to Reference Notes"
+          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-violet-600/20 hover:bg-violet-600/30 text-violet-200 border border-violet-500/30 disabled:opacity-50"
+        >
+          <span>📝 Grade &amp; Note My Answer</span>
+        </button>
         <button
           onClick={handleQuickSaveNote}
           disabled={isSynthesizingNote}

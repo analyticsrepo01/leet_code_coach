@@ -115,6 +115,23 @@ export const DEFAULT_PERSONAS: UserPersonaItem[] = [
     preferred_theme: 'dark',
     is_builtin: true,
   },
+  {
+    id: 'persona-ml-interviewer',
+    name: 'ML Mock Interviewer & Answer Coach',
+    avatar_emoji: '🎯',
+    role: 'ML / LLM Interview Q&A Practice & Feedback',
+    experience_level: 'advanced',
+    coding_background:
+      'Practicing Machine Learning, Deep Learning, Transformers, and LLM Post-Training interview questions (SFT, LoRA, Bradley-Terry, RLHF/PPO, DPO, GRPO, Self-Attention, KV Cache, MoE, FlashAttention, BERT, Classical ML, Regularization, Metrics & Optimization).',
+    coaching_style:
+      'Act as an interactive ML & LLM Technical Interviewer and Answer Coach: (1) Ask ONE realistic ML or LLM interview question at a time and wait for my answer. (2) When I answer, score my response out of 10, highlight what I got right and what was missing, and give 3-4 concrete suggestions to improve my answer plus a crisp Model Answer. (3) Automatically save a Reference Note recording the question, my answer summary, improvement suggestions, and model answer. (4) Then ask the next ML interview question.',
+    preferred_mode: 'interview',
+    preferred_voice: 'Kore',
+    preferred_track: 'ml',
+    preferred_difficulty: 'all',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
 ];
 
 function loadLocalNotes(): RevisionNoteItem[] {

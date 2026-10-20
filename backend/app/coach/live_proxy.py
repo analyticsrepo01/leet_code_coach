@@ -255,10 +255,19 @@ async def handle_coach_websocket(websocket: WebSocket) -> None:
                     # Greet candidate on fresh session start
                     if not session_rec.resumption_handle:
                         active_persona = session_store.get_persona(persona_id)
-                        intro_prompt = (
-                            f"The learner ({active_persona.name}, {active_persona.role}) just opened problem {problem.id}: {problem.title} in {mode.upper()} mode. "
-                            "Give a brief 1-2 sentence greeting tailored to their persona and mode, and invite them to state their initial thoughts."
-                        )
+                        if (
+                            active_persona.id == "persona-ml-interviewer"
+                            or "answer coach" in active_persona.coaching_style.lower()
+                        ):
+                            intro_prompt = (
+                                f"The candidate selected the {active_persona.name} persona on topic {problem.id}: {problem.title}. "
+                                "Greet them briefly in 1 sentence as their ML Mock Interviewer, and immediately ask them ONE concrete ML / LLM interview question to answer."
+                            )
+                        else:
+                            intro_prompt = (
+                                f"The learner ({active_persona.name}, {active_persona.role}) just opened problem {problem.id}: {problem.title} in {mode.upper()} mode. "
+                                "Give a brief 1-2 sentence greeting tailored to their persona and mode, and invite them to state their initial thoughts."
+                            )
                         await live_session.send_client_content(
                             turns=types.Content(
                                 role="user",

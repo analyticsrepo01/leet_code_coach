@@ -157,6 +157,10 @@ class CoachSocketManager {
       }
       if (res.saved_note) {
         store.addOrUpdateRevisionNote(res.saved_note, true);
+        store.appendTranscript(
+          'coach',
+          `📓 Saved to Reference Notes: "${res.saved_note.title}" (${res.saved_note.category}) — click the Reference Notes tab on the left to review your answer & suggestions anytime.`
+        );
       }
 
       // If Live Voice or Video Avatar is connected, have it speak around Argon's written answer

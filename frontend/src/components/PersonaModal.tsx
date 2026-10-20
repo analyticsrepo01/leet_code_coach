@@ -116,9 +116,9 @@ export const PersonaModal: React.FC = () => {
 
       let targetProblemId = currentProblem?.id;
       if (
-        saved.id === 'persona-llm-ml' &&
+        (saved.id === 'persona-llm-ml' || saved.id === 'persona-ml-interviewer') &&
         (!currentProblem ||
-          !['M17', 'M18', 'T11', 'T12', 'T13', 'T14', 'T15'].includes(
+          !['M17', 'M18', 'M19', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17'].includes(
             currentProblem.id
           ))
       ) {
@@ -135,6 +135,16 @@ export const PersonaModal: React.FC = () => {
           (saved.preferred_mode as CoachMode) || 'tutor',
           saved.id
         );
+      }
+
+      if (saved.id === 'persona-ml-interviewer') {
+        setShowPersonaModal(false);
+        setTimeout(() => {
+          coachSocket.sendText(
+            'Ask me a realistic ML / LLM interview question right now. After I answer, grade my response, give concrete suggestions to improve my answer, and save the Q&A note to Reference Notes.'
+          );
+        }, 150);
+        return;
       }
 
       setSavedBanner(`Saved & activated "${saved.name}"!`);

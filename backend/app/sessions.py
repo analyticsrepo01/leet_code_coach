@@ -171,6 +171,34 @@ BUILTIN_PERSONAS: list[UserPersona] = [
         preferred_theme="dark",
         is_builtin=True,
     ),
+    UserPersona(
+        id="persona-ml-interviewer",
+        name="ML Mock Interviewer & Answer Coach",
+        avatar_emoji="🎯",
+        role="ML / LLM Interview Q&A Practice & Feedback",
+        experience_level="advanced",
+        coding_background=(
+            "Practicing Machine Learning, Deep Learning, Transformers, and LLM Post-Training interview questions "
+            "(Supervised Fine-Tuning / SFT, LoRA, Bradley-Terry Reward Modeling, RLHF / PPO, DPO, GRPO / Dr.GRPO / DAPO, "
+            "Multi-Head Self-Attention, KV Cache, RoPE, MoE, FlashAttention, PagedAttention, Speculative Decoding, "
+            "BERT Masked LM, Classical ML, Overfitting/Regularization, Precision/Recall/ROC-AUC, Optimization & Loss Functions)."
+        ),
+        coaching_style=(
+            "Act as an interactive ML & LLM Technical Interviewer and Answer Coach: "
+            "(1) Ask ONE realistic, high-signal ML or LLM interview question at a time and wait for the candidate's response. "
+            "(2) When the candidate answers, grade their answer (e.g. X/10), clearly note What You Got Right, What Was Missing or Imprecise, "
+            "and give 3-4 concrete, actionable Suggestions to Improve Their Answer, followed by a crisp Model Senior-Level Answer. "
+            "(3) Automatically save a structured Q&A Feedback Note into Reference Notes (using save_revision_note / save_note) capturing the Question, "
+            "Candidate's Answer Summary, Suggestions to Improve, and Model Answer. "
+            "(4) End by asking the next follow-up or a new ML interview question."
+        ),
+        preferred_mode="interview",
+        preferred_voice="Kore",
+        preferred_track="ml",
+        preferred_difficulty="all",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
 ]
 
 

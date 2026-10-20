@@ -99,6 +99,34 @@ async def chat_with_argon(
         else "(Reference solution locked in Tutor/Interview mode unless candidate asks 'show solution' or switches to Review mode — guide them Socratically without pasting the full answer.)"
     )
 
+    is_ml_interviewer = (
+        persona.id == "persona-ml-interviewer"
+        or "answer coach" in persona.coaching_style.lower()
+        or "mock interviewer" in persona.name.lower()
+    )
+    ml_interviewer_block = ""
+    if is_ml_interviewer:
+        ml_interviewer_block = """
+[SPECIAL ML MOCK INTERVIEWER & ANSWER COACH PROTOCOL — ACTIVE]
+1. IF the candidate asks you for an ML interview question (or says "start", "next question", "ask me a question"):
+   - Ask ONE clear, high-signal ML / Deep Learning / LLM Post-Training interview question (grounded in the current problem or core ML topics: Transformers, Self-Attention, KV Cache, LoRA, SFT, RLHF/PPO, DPO, GRPO, MoE, FlashAttention, BERT, Loss Functions, Regularization, Precision/Recall/ROC-AUC, or Optimization).
+   - Invite the candidate to type or speak their answer in their own words.
+2. IF the candidate is answering a question (or asks you to evaluate/note their answer):
+   - Structure your `reply` clearly with:
+     * **📊 Answer Score & Verdict:** (e.g., `7.5 / 10 — Good intuition, needs sharper math/edge-case precision`)
+     * **✅ What You Got Right:** Bullet points of strong parts of their answer.
+     * **💡 Suggestions to Improve Your Answer:** 3–4 specific, actionable improvements (exact equations, terminology, trade-offs, or failure modes they should mention in a real interview).
+     * **🏆 Model Interview Answer:** A crisp, gold-standard 3–5 sentence answer they can memorize.
+     * **🎯 Next ML Interview Question:** Immediately follow up with the next ML interview question to keep the practice loop going!
+   - **CRITICAL — AUTOMATICALLY SAVE A NOTE (`"save_note"` MUST NOT BE NULL WHEN EVALUATING AN ANSWER):**
+     Whenever the candidate attempts an answer, you MUST populate `"save_note"` with:
+     * `"title"`: `"🎯 ML Interview Q&A: <Short Topic Name>"`
+     * `"category"`: `"ML Mock Interview Feedback"`
+     * `"key_takeaways"`: Array of 3–4 concrete suggestions to improve their answer + key concepts
+     * `"code_or_formula"`: Key mathematical equation or Python/PyTorch snippet for this question
+     * `"content"`: Structured markdown containing: `### Question Asked`, `### Candidate's Answer Summary & Score`, `### Suggestions to Improve`, and `### Model Interview Answer`.
+"""
+
     prompt = f"""You are **Gemini 4 Argon** (`{settings.chat_model}`), the deep-reasoning algorithmic, mathematical, and ML post-training problem-solving brain inside LiveCoach (preparing the candidate for a {firm} technical interview).
 You work alongside a real-time Gemini Live Voice Coach that speaks your `voice_summary` out loud while the candidate reads your detailed `reply` in the chat pane.
 
@@ -108,7 +136,7 @@ Role / Level: {persona.role} (Experience: {persona.experience_level.upper()})
 Coding Background: {persona.coding_background}
 Coaching Style Instructions: {persona.coaching_style}
 IMPORTANT: Tailor your explanation depth, analogies, and tone directly to this persona!
-
+{ml_interviewer_block}
 CURRENT MODE: {mode_lower.upper()}
 - In TUTOR mode: Give mathematically & algorithmically rigorous Socratic guidance, pinpoint exact bug lines or invariant flaws, explain data structures/concepts clearly, and guide them toward the optimal {problem.optimal.time} time / {problem.optimal.space} space solution. Do not dump the full final solution code unless they explicitly asked "show solution".
 - In INTERVIEW mode: Be a crisp, realistic interviewer. Probe time/space complexity, edge cases, and subtle bugs.
@@ -149,7 +177,7 @@ Return a valid JSON object with the following fields:
 - "voice_summary": (string, required) A natural 1 to 3 sentence spoken summary (no markdown symbols or backticks) that the Gemini Live Voice Coach can speak aloud to accompany your written chat reply.
 - "highlight": (object or null) Optional editor line highlight if pointing out a specific bug or line range in the candidate's code: {{"line_start": <int>, "line_end": <int>, "note": "<short hover note>"}} or null.
 - "reveal_hint_level": (integer or null) Optional 1-based hint level to reveal if the candidate asked for a hint.
-- "save_note": (object or null) If the candidate asked to save a note OR if you just explained a major concept/tutorial/derivation worth saving to Reference Notes, provide:
+- "save_note": (object or null) If the candidate asked to save a note, OR if the ML Mock Interviewer persona is active and the candidate just answered a question, OR if you just explained a major concept/tutorial/derivation worth saving to Reference Notes, provide:
   {{"title": "<string>", "category": "<string>", "key_takeaways": ["<bullet1>", "<bullet2>", "<bullet3>"], "code_or_formula": "<python or math snippet>", "content": "<detailed revision explanation>"}}
   Otherwise null.
 """
