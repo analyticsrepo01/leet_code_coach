@@ -1,0 +1,83 @@
+id: T17
+slug: cme295-llm-systems-flash-paged-speculative-laaj-dllm
+title: 'Stanford CME 295: FlashAttention vs. PagedAttention, 4D Parallelism, Speculative Decoding, LaaJ Biases & Diffusion LLMs'
+kind: theory
+track: theory
+day: 3
+pattern:
+- attention
+- systems
+- evaluation
+- theory
+difficulty: hard
+post_training_relevance: 'Covers Stanford CME 295 VIP Cheatsheet Sections 6 (LLM Systems: Kernels, Distributed Training, Inference), 7 (ReAct Agents & RAG), 8 (LLM-as-a-Judge & Agent Eval), and 9 (Diffusion LLMs).'
+statement: |
+  Based on the **Stanford CME 295 Transformers & Large Language Models VIP Cheatsheet (`cheatsheet-transformers-large-language-models.pdf`, Sections 6, 7, 8 & 9)**:
+
+  1. **GPU Kernels & Inference Systems (Section 6)**:
+     - **FlashAttention vs. PagedAttention**: How does FlashAttention leverage **SRAM vs. HBM** to compute exact attention without materializing the $N \times N$ matrix, and how does **PagedAttention** eliminate KV-cache memory fragmentation?
+     - **4 Parallelism Paradigms**: Distinguish **Data Parallelism**, **Tensor Parallelism**, **Pipeline Parallelism**, and **Expert Parallelism**.
+     - **Prefill vs. Decode & Speculative Decoding**: Contrast the compute-bound **Prefill** phase with the memory-bandwidth-bound **Decode** phase, and explain how **Speculative Decoding** uses a small draft model + parallel target verification to accelerate autoregressive decoding without changing the output distribution.
+  2. **LLM-as-a-Judge (LaaJ) & Agent Evaluation (Sections 7 & 8)**:
+     - Define the 3 classic **LLM-as-a-Judge biases** (**Position bias**, **Verbosity bias**, **Self-enhancement bias**) and state the exact mitigation for each from the CME 295 cheatsheet.
+     - Contrast **Component-level** vs. **Trajectory-level** evaluation for **ReAct (`Observe -> Plan -> Act`)** agents.
+  3. **Diffusion LLMs (dLLMs) vs. AutoRegressive Models (Section 9)**:
+     - Contrast **Continuous vs. Discrete (Masked) Diffusion LLMs** against left-to-right AutoRegressive Models (ARMs). Why do dLLMs naturally excel at arbitrary-order generation and infilling, and what is the role of the **decoding schedule**?
+hints:
+- 'FlashAttention tiles Q, K, V in fast on-chip SRAM using online softmax before writing final outputs to slower HBM; PagedAttention partitions the KV cache into fixed-size non-contiguous blocks like OS virtual memory pages.'
+- 'In Speculative Decoding, a cheap draft model proposes K tokens sequentially, and the large target model verifies all K tokens in a single parallel forward pass (like prefill!).'
+- 'Position bias -> swap/randomize order and average; Verbosity bias -> add length penalty; Self-enhancement bias -> use a judge from a different model family.'
+rubric_points:
+- 'Explains FlashAttention (SRAM tiling vs HBM bandwidth, exact output) and PagedAttention (fixed-size KV cache blocks eliminating fragmentation and enabling prefix sharing).'
+- 'Defines all 4 parallelism types (Data, Tensor, Pipeline, Expert) and contrasts Prefill (parallel prompt processing) vs Decode (sequential token generation accelerated by Speculative Decoding).'
+- 'Lists all 3 LLM-as-a-Judge biases (Position, Verbosity, Self-enhancement) with their concrete fixes, plus Component-level vs Trajectory-level agent evaluation.'
+- 'Contrasts AutoRegressive Models (left-to-right token-by-token) with Discrete Masked Diffusion LLMs (iterative whole-sequence denoising, arbitrary-order infilling, and decoding schedules).'
+follow_ups:
+- 'In RAG (Section 7.2), why do production pipelines combine a hybrid Retriever (sparse BM25 + dense embedding cosine similarity) followed by a cross-encoder Reranker?'
+- 'How does Prompt Caching reuse prefill KV blocks across multi-turn agent harnesses like Claude Code or Codex?'
+reference_solution: |
+  ### Model Answer (Stanford CME 295 VIP Cheatsheet — Sections 6, 7, 8 & 9)
+
+  1. **LLM Systems: Kernels, Parallelism & Inference Optimizations (Section 6)**:
+     - **FlashAttention**: Computes **exact** attention by tiling $Q, K, V$ blocks inside fast on-chip **SRAM** and maintaining running softmax normalization statistics, avoiding reading/writing the intermediate $N \times N$ attention matrix to slow **High Bandwidth Memory (HBM)**.
+     - **PagedAttention**: Manages each sequence's KV cache in **fixed-size memory blocks (pages)** that can be stored non-contiguously in GPU HBM, eliminating internal/external fragmentation and allowing copy-on-write KV sharing across beams or shared prompt prefixes.
+     - **4D Distributed Training Parallelism**:
+       1. **Data Parallelism (DP)**: Replicates model weights across GPUs and splits mini-batches across devices.
+       2. **Tensor Parallelism (TP)**: Splits individual matrix multiplications *within* a layer (intra-layer sharding) across GPUs.
+       3. **Pipeline Parallelism (PP)**: Splits contiguous groups of Transformer layers into stages across GPUs (inter-layer sharding).
+       4. **Expert Parallelism (EP)**: Places different MoE experts $E_i$ on different GPUs and routes tokens via all-to-all communication.
+     - **Prefill vs. Decode & Speculative Decoding**:
+       - **Prefill** processes all prompt tokens in parallel to populate the KV cache (compute-bound); **Decode** generates one token at a time conditioned on the KV cache (memory-bandwidth-bound).
+       - **Speculative Decoding** runs a small, fast **draft model** autoregressively to propose $\gamma$ candidate tokens, then runs a **single parallel forward pass** of the large **target model** to verify all $\gamma$ tokens simultaneously via rejection sampling—preserving the exact target distribution while achieving $2\text{--}3\times$ speedup.
+
+  2. **AI Agents, RAG & LLM-as-a-Judge Evaluation (Sections 7 & 8)**:
+     - **LLM-as-a-Judge (LaaJ) 3 Core Biases & Mitigations**:
+       | Bias | Problem | Solution (CME 295 Cheatsheet) |
+       |---|---|---|
+       | **Position bias** | Judge favors whichever response is shown first in pairwise comparison | Evaluate both orders `(A, B)` and `(B, A)` / randomize positions and average scores |
+       | **Verbosity bias** | Judge favors longer, more verbose responses regardless of density | Add an explicit length penalty or length-controlled win rate (LC-AlpacaEval) |
+       | **Self-enhancement bias** | Judge favors outputs generated by its own model family | Use an independent judge built from a different base model family (or ensemble of judges) |
+     - **Agent Evaluation (`ReAct: Observe -> Plan -> Act`)**:
+       - **Component-level evaluation**: Tests individual modules in isolation (retrieval precision/recall, tool selection accuracy, single-step latency).
+       - **Trajectory-level evaluation**: Evaluates the end-to-end multi-step execution trace (overall task success rate, number of tool calls/steps, error recovery rate, total latency & token cost).
+
+  3. **Diffusion LLMs (dLLMs) vs. AutoRegressive Models (Section 9)**:
+     - **Paradigm Shift**: AutoRegressive Models (ARMs) factorize $P(y) = \prod_{t=1}^T P(y_t \mid y_{<t})$ strictly from left to right. **Diffusion LLMs (dLLMs)** generate text via iterative whole-sequence denoising—most commonly via **Discrete Masked Diffusion**, where the forward process progressively replaces tokens with `[MASK]` at a sampled noise ratio and the reverse model reconstructs clean tokens across the entire sequence in parallel.
+     - **Advantages & Decoding Schedule**: Because generation is not constrained left-to-right, dLLMs natively support **arbitrary-order generation and bidirectional infilling**. A **decoding schedule** governs how many high-confidence predicted tokens are locked in vs. re-masked at each denoising step, directly trading off number of denoising passes (speed) against generation quality.
+resources:
+- title: 'Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)'
+  url: /materials/stanford_cme295_cheatsheet_transformers_llms.pdf
+  channel: Afshine Amidi & Shervine Amidi (Stanford CME 295)
+  duration: 6-Page Cheatsheet PDF
+  kind: pdf
+- title: 'Stanford CME 295 Cheatsheet Official GitHub PDF'
+  url: https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf
+  channel: Stanford CME 295 GitHub
+  duration: Official PDF
+  kind: pdf
+- title: 'FlashAttention, KV Cache, PagedAttention & Speculative Decoding Explained'
+  url: https://www.youtube.com/watch?v=IoGaGfU1VgQ
+  video_id: IoGaGfU1VgQ
+  channel: Umar Jamil
+  duration: 49m
+  kind: youtube

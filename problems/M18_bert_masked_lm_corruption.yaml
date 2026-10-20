@@ -1,0 +1,151 @@
+id: M18
+slug: bert-masked-lm-corruption
+title: 'Stanford SLP3 Ch. 9: BERT 80/10/10 Masked Language Model (MLM) Corruption & Loss Mask'
+leetcode: null
+day: 3
+track: ml
+kind: coding
+pattern:
+- numpy
+- bert
+- masked_lm
+difficulty: medium
+post_training_relevance: 'From Stanford SLP3 Chapter 9 (Masked Language Models): BERT selects 15% of tokens for prediction and applies the 80% [MASK] / 10% random token / 10% unchanged corruption rule so `[MASK]` never causes a pretraining-to-finetuning mismatch.'
+statement: |
+  In **Stanford SLP3 Chapter 9 (Masked Language Models)**, BERT is pretrained by selecting 15% of input tokens as masked-LM targets and applying the **80 / 10 / 10 rule** to each selected token $x_i$:
+  - If `u_action[i] < 0.8`: replace $x_i$ with `mask_token_id` (80% of the time).
+  - Else if `u_action[i] < 0.9`: replace $x_i$ with `random_token_ids[i]` (10% of the time).
+  - Else (`u_action[i] >= 0.9`): keep $x_i$ unchanged (10% of the time).
+
+  For unselected tokens (where `selected_mask[i] == 0`), the input token is left unchanged and its label is set to `-100` (`ignore_index`) so Cross-Entropy loss is **only** computed on the selected positions.
+
+  Given 1D arrays `token_ids`, `selected_mask` (0 or 1), `u_action` (floats in `[0, 1)`), `random_token_ids`, and integer `mask_token_id`:
+  Return `[corrupted_token_ids.tolist(), labels.tolist()]`.
+examples:
+- input: token_ids = [101, 2054, 2003, 1996, 102], selected_mask = [0, 1, 1, 1, 0], u_action = [0.0, 0.5, 0.85, 0.95, 0.0], random_token_ids = [0, 999, 888, 777, 0], mask_token_id = 103
+  output: '[[101, 103, 888, 1996, 102], [-100, 2054, 2003, 1996, -100]]'
+  explanation: 'Pos 1 (u=0.5 < 0.8) -> [MASK] (103). Pos 2 (u=0.85 in [0.8, 0.9)) -> random (888). Pos 3 (u=0.95 >= 0.9) -> kept (1996). Labels store original IDs for selected positions and -100 elsewhere.'
+constraints:
+- 1 <= len(token_ids) <= 2048
+function_name: bert_mlm_corrupt
+starter_code: |
+  import numpy as np
+
+  def bert_mlm_corrupt(token_ids, selected_mask, u_action, random_token_ids, mask_token_id: int):
+      # Return [corrupted_ids_list, labels_list]
+      pass
+tests:
+- args:
+  - - 101
+    - 2054
+    - 2003
+    - 1996
+    - 102
+  - - 0
+    - 1
+    - 1
+    - 1
+    - 0
+  - - 0.0
+    - 0.5
+    - 0.85
+    - 0.95
+    - 0.0
+  - - 0
+    - 999
+    - 888
+    - 777
+    - 0
+  - 103
+  expected:
+  - - 101
+    - 103
+    - 888
+    - 1996
+    - 102
+  - - -100
+    - 2054
+    - 2003
+    - 1996
+    - -100
+hidden_tests:
+- args:
+  - - 10
+    - 20
+    - 30
+    - 40
+  - - 1
+    - 0
+    - 1
+    - 1
+  - - 0.79
+    - 0.1
+    - 0.80
+    - 0.90
+  - - 55
+    - 66
+    - 77
+    - 88
+  - 99
+  expected:
+  - - 99
+    - 20
+    - 77
+    - 40
+  - - 10
+    - -100
+    - 30
+    - 40
+compare: exact
+time_limit_ms: 2000
+hints:
+- Set `labels = np.where(selected, tokens, -100)` so non-masked positions are ignored by CrossEntropyLoss.
+- For `selected` positions, replace with `mask_token_id` when `u < 0.8`, `random_token_ids` when `0.8 <= u < 0.9`, and keep original `tokens` when `u >= 0.9`.
+optimal:
+  time: O(N)
+  space: O(N)
+follow_ups:
+- Why does BERT use 80% [MASK], 10% random, and 10% unchanged instead of replacing 100% of selected tokens with [MASK]?
+- Why can't a bidirectional Masked LM be used directly for left-to-right causal generation without an iterative Gibbs/MaskGIT schedule?
+reference_solution: |
+  import numpy as np
+
+  def bert_mlm_corrupt(token_ids, selected_mask, u_action, random_token_ids, mask_token_id: int):
+      tokens = np.asarray(token_ids, dtype=np.int64)
+      sel = np.asarray(selected_mask, dtype=bool)
+      u = np.asarray(u_action, dtype=np.float64)
+      rand_tok = np.asarray(random_token_ids, dtype=np.int64)
+
+      labels = np.where(sel, tokens, -100)
+      corrupted = tokens.copy()
+
+      mask_branch = sel & (u < 0.8)
+      rand_branch = sel & (u >= 0.8) & (u < 0.9)
+
+      corrupted[mask_branch] = int(mask_token_id)
+      corrupted[rand_branch] = rand_tok[rand_branch]
+
+      return [corrupted.tolist(), labels.tolist()]
+resources:
+- title: 'Stanford SLP3 Ch. 9 PDF — Masked Language Models (BERT) (Local PDF)'
+  url: /materials/slp3_ch9_masked_lm.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 9
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 9 Official URL (web.stanford.edu/~jurafsky/slp3/9.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/9.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'BERT Neural Network — Explained! (80/10/10 Masked LM & Fine-Tuning)'
+  url: https://www.youtube.com/watch?v=xI0HHN5XKDo
+  video_id: xI0HHN5XKDo
+  channel: CodeEmporium
+  duration: 13m
+  kind: youtube
+- title: 'Stanford CS224N: Pretraining, Masked Language Models (BERT) & RoBERTa'
+  url: https://www.youtube.com/watch?v=knTc-UrMxI8
+  video_id: knTc-UrMxI8
+  channel: Stanford Online
+  duration: 1h 20m
+  kind: youtube

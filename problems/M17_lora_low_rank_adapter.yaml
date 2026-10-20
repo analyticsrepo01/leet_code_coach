@@ -1,0 +1,137 @@
+id: M17
+slug: lora-low-rank-adapter
+title: 'Stanford SLP3 Ch. 8: LoRA (Low-Rank Adaptation) Forward Pass & Parameter Savings'
+leetcode: null
+day: 3
+track: ml
+kind: coding
+pattern:
+- numpy
+- lora
+- post_training
+difficulty: medium
+post_training_relevance: 'From Stanford SLP3 Chapter 8 (Post-Training / Parameter-Efficient Fine-Tuning): LoRA freezes the pretrained weight matrix W_0 in R^(d x k) and injects trainable low-rank matrices A in R^(d x r) and B in R^(r x k) scaled by alpha/r.'
+statement: |
+  In **Stanford SLP3 Chapter 8 (Post-Training)**, **Low-Rank Adaptation (LoRA)** (Hu et al., 2022) enables parameter-efficient fine-tuning (PEFT) by freezing the pretrained weight matrix $W_0 \in \mathbb{R}^{d \times k}$ and learning a low-rank update $\Delta W = \frac{\alpha}{r} A B$, where $A \in \mathbb{R}^{d \times r}$, $B \in \mathbb{R}^{r \times k}$, and rank $r \ll \min(d, k)$.
+
+  Given:
+  - `X`: input activations of shape `(N, d)`
+  - `W0`: frozen pretrained weight matrix of shape `(d, k)`
+  - `A`: low-rank down-projection matrix of shape `(d, r)`
+  - `B`: low-rank up-projection matrix of shape `(r, k)`
+  - `alpha`: float LoRA scaling constant
+
+  Compute:
+  1. The LoRA output `Y = X @ W0 + (alpha / r) * ((X @ A) @ B)` of shape `(N, k)`.
+  2. The trainable parameter compression ratio `ratio = (d * r + r * k) / (d * k)` as a float.
+
+  Return `[Y.tolist(), float(ratio)]`.
+examples:
+- input: X = [[1.0, 2.0]], W0 = [[1.0, 0.0], [0.0, 1.0]], A = [[0.5], [0.5]], B = [[2.0, -2.0]], alpha = 2.0
+  output: '[[[7.0, -4.0]], 1.0]'
+  explanation: 'r=1, alpha/r = 2.0. Base X@W0 = [1, 2]. LoRA delta = 2.0 * ([1.5] @ [2, -2]) = [6, -6]. Output = [7, -4].'
+constraints:
+- 1 <= N <= 256
+- 1 <= r <= d, k <= 512
+- alpha > 0
+function_name: lora_forward
+starter_code: |
+  import numpy as np
+
+  def lora_forward(X, W0, A, B, alpha: float):
+      # Return [Y_list, compression_ratio_float]
+      pass
+tests:
+- args:
+  - - - 1.0
+      - 2.0
+  - - - 1.0
+      - 0.0
+    - - 0.0
+      - 1.0
+  - - - 0.5
+    - - 0.5
+  - - - 2.0
+      - -2.0
+  - 2.0
+  expected:
+  - - - 7.0
+      - -4.0
+  - 1.0
+hidden_tests:
+- args:
+  - - - 1.0
+      - 0.0
+      - -1.0
+      - 2.0
+  - - - 1.0
+      - 2.0
+    - - 0.0
+      - 1.0
+    - - -1.0
+      - 0.0
+    - - 0.5
+      - -0.5
+  - - - 1.0
+    - - 2.0
+    - - 1.0
+    - - 0.0
+  - - - 0.5
+      - 1.5
+  - 4.0
+  expected:
+  - - - 3.0
+      - 1.0
+  - 0.75
+compare: numpy_allclose
+time_limit_ms: 2000
+hints:
+- Convert `X`, `W0`, `A`, `B` to `np.float64` arrays; infer `d, k = W0.shape` and `r = A.shape[1]`.
+- Compute `(X @ A) @ B` rather than `X @ (A @ B)` so the intermediate matrix has shape `(N, r)` (`O(N(d+k)r)` FLOPs instead of `O(Ndk)`).
+- Trainable parameter ratio is `(d * r + r * k) / (d * k)`.
+optimal:
+  time: O(N * d * k + N * (d + k) * r)
+  space: O(N * k)
+follow_ups:
+- Why is matrix A initialized with Gaussian noise N(0, sigma^2) while matrix B is initialized to 0 at the start of SFT/Post-Training?
+- Why do we scale by alpha/r, and how can LoRA weights be merged into W0 (`W_merged = W0 + (alpha/r) A B`) for zero-latency inference?
+reference_solution: |
+  import numpy as np
+
+  def lora_forward(X, W0, A, B, alpha: float):
+      X = np.asarray(X, dtype=np.float64)
+      W0 = np.asarray(W0, dtype=np.float64)
+      A = np.asarray(A, dtype=np.float64)
+      B = np.asarray(B, dtype=np.float64)
+      d, k = W0.shape
+      r = A.shape[1]
+      scale = float(alpha) / float(r)
+      # Compute low-rank branch in O(N(d+k)r)
+      y_base = X @ W0
+      y_lora = scale * ((X @ A) @ B)
+      y = y_base + y_lora
+      ratio = float(d * r + r * k) / float(d * k)
+      return [y.tolist(), ratio]
+resources:
+- title: 'Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)'
+  url: /materials/slp3_ch8_post_training.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 8
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/8.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'LoRA: Low-Rank Adaptation of Large Language Models Explained'
+  url: https://www.youtube.com/watch?v=DhRoTONcyZE
+  video_id: DhRoTONcyZE
+  channel: Umar Jamil
+  duration: 28m
+  kind: youtube
+- title: 'Stanford CS224N: Pretraining and Post-Training / Alignment'
+  url: https://www.youtube.com/watch?v=D8GOeCFFby4
+  video_id: D8GOeCFFby4
+  channel: Stanford Online
+  duration: 1h 18m
+  kind: youtube

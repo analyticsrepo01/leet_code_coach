@@ -1,0 +1,73 @@
+id: T15
+slug: ecornell-post-training-eval-dpo-grpo
+title: 'eCornell Post-Training: Full Alignment Pipeline, Reward Hacking, Length Bias & SimPO/ORPO/GRPO'
+kind: theory
+track: theory
+day: 3
+pattern:
+- post_training
+- rlhf
+- dpo
+- grpo
+- evaluation
+- theory
+difficulty: hard
+post_training_relevance: 'Designed specifically for the eCornell Post-Training curriculum & Stanford SLP3 Ch. 8: covers end-to-end post-training architecture, reward hacking & verbosity bias in LLM-as-a-Judge, and reference-free / group-relative post-training (SimPO, ORPO, GRPO).'
+statement: |
+  Based on your **eCornell Post-Training Course** and **Stanford SLP3 Chapter 8 (`8.pdf`)**:
+
+  1. **Why SFT Before Preference Tuning (RLHF / DPO)?**: Why do we run Supervised Fine-Tuning (SFT) *before* DPO or PPO rather than running DPO/PPO directly on a raw base model? What happens to the reference policy $\pi_{\text{ref}}(y \mid x)$ if SFT is skipped?
+  2. **Reward Hacking & Length Bias in Post-Training**: Why do both human annotators and LLM-as-a-Judge models systematically favor longer, overly verbose completions? How does **SimPO (Simple Preference Optimization)** fix length bias and eliminate $\pi_{\text{ref}}$ via length-normalized log-likelihood $\frac{1}{|y|}\log \pi_\theta(y \mid x)$ and a target margin $\gamma$?
+  3. **Group Relative Policy Optimization (GRPO) for Reasoning**: Write the GRPO group-normalized advantage $A_i = \frac{r_i - \text{mean}(r_{1..G})}{\text{std}(r_{1..G}) + \epsilon}$ for $G$ sampled completions per prompt, and explain why GRPO is ideal for verifiable math/code post-training (RLVR).
+hints:
+- Without SFT, the base model rarely samples well-formatted assistant responses, so preference pairs are out-of-distribution and log pi_ref(y|x) is poorly calibrated.
+- Sequence log-probability sum_{t=1}^{|y|} log P(y_t | x, y_{<t}) is a sum of negative numbers, which naturally penalizes length unless normalized by 1/|y|; conversely, reward models correlate length with helpfulness.
+- GRPO samples G rollouts per prompt x and uses the group mean as the baseline, completely removing the Critic/Value network V_psi (saving ~50% trainable parameters vs. PPO).
+rubric_points:
+- Explains why SFT is required before DPO/PPO to bring the policy into the in-distribution support of instruction-following responses and calibrate pi_ref.
+- Diagnoses reward hacking (Goodhart's Law) and length/verbosity bias in RLHF, DPO, and LLM-as-a-Judge evaluation (position bias, length bias, self-preference bias).
+- Writes SimPO objective with length-normalized logprobs (beta / |y|) log pi(y|x) and target reward margin gamma (removing pi_ref from GPU memory).
+- Writes GRPO group advantage A_i = (r_i - mu_G) / (sigma_G + eps) and explains why RLVR (verifiable rewards) + GRPO avoids neural reward model hacking.
+follow_ups:
+- How do you design a debiased LLM-as-a-Judge evaluation harness (swapping A/B order, length-controlled win rate as in AlpacaEval 2.0)?
+- How does ORPO (Odds Ratio Preference Optimization) combine SFT loss and preference alignment into a single stage without a reference model?
+reference_solution: |
+  ### Model Answer (eCornell Post-Training & Stanford SLP3 Ch. 8)
+
+  1. **Why SFT Precedes DPO / PPO**:
+     - Both PPO and DPO constrain the policy $\pi_\theta$ to stay close to $\pi_{\text{ref}}$ via $D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}})$.
+     - If $\pi_{\text{ref}}$ is an unaligned base model that does not follow chat templates or instructions, then desirable assistant responses $y_w$ have very low probability under $\pi_{\text{ref}}$, causing high variance in the log-ratio $\log \frac{\pi_\theta(y \mid x)}{\pi_{\text{ref}}(y \mid x)}$ and severe distribution shift. SFT places $\pi_{\text{ref}}$ squarely on the manifold of helpful responses first.
+
+  2. **Reward Hacking, Length Bias & SimPO**:
+     - **Goodhart's Law / Length Bias**: Learned reward models $r_\phi(x, y)$ and LLM-as-a-Judge evaluators exhibit strong **verbosity bias** (favoring longer, bulleted answers even when repetitive) and **position bias** (favoring the first option in pairwise comparison).
+     - Furthermore, in standard DPO, $\log \pi_\theta(y \mid x) = \sum_{t=1}^{|y|} \log P_\theta(y_t \mid x, y_{<t})$ scales with sequence length $|y|$, creating a mismatch between training (sum of logprobs) and generation (average per-token logprob).
+     - **SimPO (Meng et al., 2024)** replaces the reference ratio with **length-normalized average log-probability** and a target margin $\gamma > 0$, removing $\pi_{\text{ref}}$ entirely:
+       $$\mathcal{L}_{\text{SimPO}}(\theta) = -\mathbb{E}\left[\log \sigma\!\left(\frac{\beta}{|y_w|}\log \pi_\theta(y_w \mid x) - \frac{\beta}{|y_l|}\log \pi_\theta(y_l \mid x) - \gamma\right)\right]$$
+
+  3. **GRPO (Group Relative Policy Optimization) & Verifiable Rewards (RLVR)**:
+     - For each prompt $x$, sample a group of $G$ completions $\{y_1, \dots, y_G\} \sim \pi_{\theta_{\text{old}}}(\cdot \mid x)$, score each with a verifiable reward $r_i$ (e.g., unit tests passing or exact math answer), and compute the group-normalized advantage:
+       $$A_i = \frac{r_i - \text{mean}(r_1, \dots, r_G)}{\text{std}(r_1, \dots, r_G) + \epsilon}$$
+     - **Why it wins for reasoning**: Eliminates the Critic/Value model $V_\psi$ (cutting memory by nearly half compared to PPO) and uses deterministic verifiers instead of a neural reward model, preventing reward hacking on reasoning chains.
+resources:
+- title: 'Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)'
+  url: /materials/slp3_ch8_post_training.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 8
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/8.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'DeepSeek-R1 & GRPO: Group Relative Policy Optimization Explained'
+  url: https://www.youtube.com/watch?v=bAWV_yrqx4w
+  video_id: bAWV_yrqx4w
+  channel: Umar Jamil
+  duration: 38m
+  kind: youtube
+- title: 'Direct Preference Optimization (DPO) & Post-Training Alignment'
+  url: https://www.youtube.com/watch?v=hvGa5Mba4c8
+  video_id: hvGa5Mba4c8
+  channel: Umar Jamil
+  duration: 46m
+  kind: youtube

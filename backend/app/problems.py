@@ -47,6 +47,7 @@ class Problem(BaseModel):
     follow_ups: list[str] = Field(default_factory=list)
     reference_solution: str = ""
     rubric_points: list[str] = Field(default_factory=list)
+    resources: list[dict[str, str]] = Field(default_factory=list)
 
     def to_list_item(self) -> dict[str, Any]:
         return {
@@ -64,7 +65,7 @@ class Problem(BaseModel):
         }
 
     def to_public_dict(self) -> dict[str, Any]:
-        """Serialize problem for browser consumption, strictly omitting reference_solution."""
+        """Serialize problem for browser consumption, including revealable reference_solution & resources."""
         return {
             "id": self.id,
             "slug": self.slug,
@@ -89,7 +90,113 @@ class Problem(BaseModel):
             "optimal": self.optimal.model_dump(),
             "follow_ups": self.follow_ups,
             "rubric_points": self.rubric_points,
+            "reference_solution": self.reference_solution,
+            "resources": self.resources,
         }
+
+
+def _default_resources_for_problem(prob: Problem) -> list[dict[str, str]]:
+    text = f"{prob.id} {prob.title} {' '.join(prob.pattern)} {prob.post_training_relevance}".lower()
+    if any(k in text for k in ["bert", "masked", "mlm", "cloze", "bio"]):
+        return [
+            {
+                "title": "Stanford SLP3 Ch. 9 PDF — Masked Language Models (BERT) (Local PDF)",
+                "url": "/materials/slp3_ch9_masked_lm.pdf",
+                "channel": "Jurafsky & Martin (Stanford SLP3)",
+                "duration": "PDF Ch. 9",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Ch. 9 Official URL (web.stanford.edu/~jurafsky/slp3/9.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/9.pdf",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "BERT Neural Network — Explained! (80/10/10 Masked LM & Fine-Tuning)",
+                "url": "https://www.youtube.com/watch?v=xI0HHN5XKDo",
+                "video_id": "xI0HHN5XKDo",
+                "channel": "CodeEmporium",
+                "duration": "13m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Stanford CS224N: Pretraining, Masked Language Models (BERT) & RoBERTa",
+                "url": "https://www.youtube.com/watch?v=knTc-UrMxI8",
+                "video_id": "knTc-UrMxI8",
+                "channel": "Stanford Online",
+                "duration": "1h 20m",
+                "kind": "youtube",
+            },
+        ]
+    if any(k in text for k in ["attention", "transformer", "kv cache", "rope", "rotary", "softmax", "top-p", "nucleus", "bpe"]):
+        return [
+            {
+                "title": "Stanford SLP3 Transformer & Self-Attention Lecture Slides (Local PDF)",
+                "url": "/materials/slp3_transformer_slides_aug26.pdf",
+                "channel": "Jurafsky & Martin (Stanford SLP3 Slides)",
+                "duration": "Slides PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Transformer Slides Official URL (transformer_aug26.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/slides/transformer_aug26.pdf",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "3Blue1Brown — Attention in Transformers, Visually Explained",
+                "url": "https://www.youtube.com/watch?v=eMlx5fFNoYc",
+                "video_id": "eMlx5fFNoYc",
+                "channel": "3Blue1Brown",
+                "duration": "26m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Andrej Karpathy — Let's Build GPT: from Scratch, in Code, Spelled Out",
+                "url": "https://www.youtube.com/watch?v=kCc8FmEb1nY",
+                "video_id": "kCc8FmEb1nY",
+                "channel": "Andrej Karpathy",
+                "duration": "1h 56m",
+                "kind": "youtube",
+            },
+        ]
+    if prob.track in ("ml", "theory"):
+        return [
+            {
+                "title": "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)",
+                "url": "/materials/slp3_ch8_post_training.pdf",
+                "channel": "Jurafsky & Martin (Stanford SLP3)",
+                "duration": "PDF Ch. 8",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/8.pdf",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "Direct Preference Optimization (DPO) & RLHF Complete Derivation",
+                "url": "https://www.youtube.com/watch?v=hvGa5Mba4c8",
+                "video_id": "hvGa5Mba4c8",
+                "channel": "Umar Jamil",
+                "duration": "46m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Stanford CS224N — RLHF, Reward Modeling, PPO & DPO Lecture",
+                "url": "https://www.youtube.com/watch?v=D8GOeCFFby4",
+                "video_id": "D8GOeCFFby4",
+                "channel": "Stanford Online",
+                "duration": "1h 18m",
+                "kind": "youtube",
+            },
+        ]
+    return []
 
 
 class ProblemBank:
@@ -118,6 +225,8 @@ class ProblemBank:
                 else:
                     raw["track"] = "ds"
             prob = Problem.model_validate(raw)
+            if not prob.resources:
+                prob.resources = _default_resources_for_problem(prob)
             self._problems[prob.id] = prob
 
     def list_all(self) -> list[Problem]:

@@ -18,6 +18,8 @@ export interface ProblemDetail extends ProblemListItem {
   constraints: string[];
   function_name: string;
   starter_code: string;
+  reference_solution?: string;
+  resources?: LearningResourceItem[];
   tests: Array<{ args: any[]; expected: any }>;
   hidden_tests: Array<{ args: any[]; expected: any }>;
   compare: string;
@@ -60,7 +62,7 @@ export interface LearningResourceItem {
   video_id?: string;
   channel?: string;
   duration?: string;
-  kind?: 'youtube' | 'docs' | 'article' | string;
+  kind?: 'youtube' | 'docs' | 'pdf' | 'article' | string;
 }
 
 export interface RevisionNoteItem {
@@ -248,6 +250,27 @@ export async function searchLearningResourcesApi(
     { headers: getAuthHeaders() }
   );
   if (!res.ok) throw new Error('Failed to search learning resources');
+  return res.json();
+}
+
+export async function uploadCoursePdfNoteApi(
+  file: File,
+  courseTag: string = 'eCornell Post-Training',
+  problemId: string = 'T15'
+): Promise<RevisionNoteItem> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('course_tag', courseTag);
+  formData.append('problem_id', problemId);
+  const res = await fetch('/api/notes/upload-pdf', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`PDF upload failed (${res.status}): ${errText}`);
+  }
   return res.json();
 }
 

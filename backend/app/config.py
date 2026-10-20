@@ -31,6 +31,12 @@ class Settings(BaseModel):
             str(Path(__file__).resolve().parent.parent.parent / "problems"),
         )
     )
+    materials_dir: Path = Path(
+        os.getenv(
+            "MATERIALS_DIR",
+            str(Path(__file__).resolve().parent.parent.parent / "materials"),
+        )
+    )
     static_dir: Path = Path(
         os.getenv(
             "STATIC_DIR",
@@ -40,3 +46,4 @@ class Settings(BaseModel):
 
 
 settings = Settings()
+

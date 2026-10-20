@@ -1,0 +1,73 @@
+id: T14
+slug: slp3-ch9-bert-mlm-cls-bio-ner
+title: 'Stanford SLP3 Ch. 9: Bidirectional Encoder (BERT), 80/10/10 Masking, [CLS] & BIO Span Tagging'
+kind: theory
+track: theory
+day: 3
+pattern:
+- bert
+- masked_lm
+- theory
+difficulty: medium
+post_training_relevance: 'Grounded directly in Stanford SLP3 Chapter 9 (Masked Language Models): explains bidirectional encoder representations, the 80/10/10 masking rule, [CLS]/[SEP] fine-tuning, and why encoder embeddings power modern RAG & reward models.'
+statement: |
+  Based on **Stanford SLP3 Chapter 9 (`9.pdf` — Masked Language Models)**:
+
+  1. **Bidirectional Encoder vs. Causal Decoder**: Why can't a bidirectional self-attention encoder use the standard left-to-right next-token prediction objective $-\sum_t \log P(x_t \mid x_{<t})$ without trivial information leakage across layers?
+  2. **The 15% Selection & 80 / 10 / 10 Masking Rule**: Walk through how BERT constructs a training batch (selecting 15% of tokens, replacing 80% with `[MASK]`, 10% with a random vocabulary token, and leaving 10% unchanged). What specific train-test mismatch problem does each of the 3 branches solve?
+  3. **Fine-Tuning BERT for Sequence Classification (`[CLS]`) & Token Tagging (`BIO`)**: How is BERT fine-tuned for:
+     - Single-sentence or sentence-pair classification (`[CLS] Sent A [SEP] Sent B [SEP]`) such as Natural Language Inference (NLI) or Cross-Encoder reranking?
+     - Token-level Named Entity Recognition (NER) using `B-PER, I-PER, O` (`BIO`) tags, and how do you handle WordPiece subwords during token tagging?
+hints:
+- In a multi-layer bidirectional encoder without a causal mask, token i at layer 2 can indirectly see token i at layer 0 via token j's representation at layer 1!
+- Because the `[MASK]` token never appears during downstream fine-tuning or inference, replacing 100% of selected tokens with `[MASK]` would cause the model to only compute meaningful contextual representations on `[MASK]` tokens.
+- For subword token tagging (e.g., `"Jurafsky"` -> `["Jur", "##af", "##sky"]`), typically apply the BIO classification head to the first subword piece and set `labels = -100` on continuation `##` subwords (or pool subwords).
+rubric_points:
+- Explains multi-layer bidirectional information leakage if trained with standard causal LM loss without masking.
+- Explains the 15% token selection and the exact role of 80% [MASK] (contextual prediction), 10% random token (forces model to verify every token against context), and 10% unchanged (aligns representation of real unmasked words for fine-tuning).
+- Describes [CLS] pooling + linear head softmax(h_[CLS] W_c) for sequence/pair classification and token-wise softmax(h_i W_tag) for BIO NER.
+- Explains WordPiece subword alignment (`labels = -100` on `##` continuation pieces) and contrasts RoBERTa (dynamic masking, no NSP) and DeBERTa (disentangled relative position).
+follow_ups:
+- Why did RoBERTa drop BERT's Next Sentence Prediction (NSP) objective and switch from static to dynamic masking?
+- In a RAG pipeline, when should you use a Bi-Encoder ($\cos(E(q), E(d))$) vs. a Cross-Encoder (`BERT([CLS] q [SEP] d [SEP])`)?
+reference_solution: |
+  ### Model Answer (Stanford SLP3 Ch. 9 — Masked Language Models)
+
+  1. **Why Bidirectional Encoders Require Cloze / Masked LM**:
+     - In bidirectional self-attention, every token $i$ attends to all tokens $1 \dots N$ (both left and right context).
+     - If trained with a standard language modeling objective without masking inputs, token $i$ at layer $l \ge 2$ would attend to token $j$'s layer-$(l-1)$ state, which already attended to token $i$ at layer $0$ — allowing the network to trivially copy the target token rather than learning deep semantics.
+
+  2. **The 15% Selection & 80 / 10 / 10 Corruption Rule**:
+     - Select 15% of input tokens $i \in \mathcal{M}$ and compute Cross-Entropy loss **only** on $i \in \mathcal{M}$:
+       $$\mathcal{L}_{\text{MLM}}(\theta) = -\sum_{i \in \mathcal{M}} \log P_\theta(x_i \mid \tilde{x})$$
+     - Because `[MASK]` never appears at downstream test time, replacing 100% of selected tokens with `[MASK]` creates a pretrain-finetune mismatch. Therefore:
+       - **80% `[MASK]`**: Forces the encoder to infer the missing word purely from bidirectional context.
+       - **10% Random Token**: Prevents the model from trusting that any non-`[MASK]` token is automatically correct; it must validate every token against surrounding context.
+       - **10% Unchanged**: Biases the hidden state $h_i$ toward the actual observed word so unmasked tokens at fine-tuning time have rich representations.
+
+  3. **Downstream Fine-Tuning (`[CLS]` vs. `BIO` Sequence Labeling)**:
+     - **Sequence / Pair Classification**: Format input as `[CLS] Sentence A [SEP] Sentence B [SEP]` with learned segment embeddings $E_A, E_B$, and pass the final-layer $h_{\text{[CLS]}} \in \mathbb{R}^d$ through $\hat{y} = \text{softmax}(h_{\text{[CLS]}} W_c + b_c)$.
+     - **Token Classification (`BIO` NER)**: Pass each token state $h_i \in \mathbb{R}^d$ through $\hat{y}_i = \text{softmax}(h_i W_{\text{tag}} + b_{\text{tag}})$ over `{B-LOC, I-LOC, B-PER, I-PER, B-ORG, I-ORG, O}` (optionally with a linear-chain CRF on top to prevent invalid transitions like `O -> I-PER`). For WordPiece subwords (`##`), predict the tag on the first subword and mask continuation subwords with `-100`.
+resources:
+- title: 'Stanford SLP3 Ch. 9 PDF — Masked Language Models (BERT) (Local PDF)'
+  url: /materials/slp3_ch9_masked_lm.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 9
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 9 Official URL (web.stanford.edu/~jurafsky/slp3/9.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/9.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'BERT Neural Network — Explained! (80/10/10 Masked LM & Fine-Tuning)'
+  url: https://www.youtube.com/watch?v=xI0HHN5XKDo
+  video_id: xI0HHN5XKDo
+  channel: CodeEmporium
+  duration: 13m
+  kind: youtube
+- title: 'Stanford CS224N: Pretraining, Masked Language Models (BERT) & RoBERTa'
+  url: https://www.youtube.com/watch?v=knTc-UrMxI8
+  video_id: knTc-UrMxI8
+  channel: Stanford Online
+  duration: 1h 20m
+  kind: youtube

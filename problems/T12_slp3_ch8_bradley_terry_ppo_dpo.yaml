@@ -1,0 +1,73 @@
+id: T12
+slug: slp3-ch8-bradley-terry-ppo-dpo
+title: 'Stanford SLP3 Ch. 8 & eCornell: Bradley-Terry Reward Model, 4-Model RLHF (PPO) vs. DPO'
+kind: theory
+track: theory
+day: 3
+pattern:
+- rlhf
+- dpo
+- ppo
+- theory
+difficulty: hard
+post_training_relevance: 'Covers the core mathematical heart of Stanford SLP3 Chapter 8 (Post-Training) and eCornell Post-Training: Bradley-Terry pairwise preference loss, the 4 models in RLHF/PPO, and how DPO eliminates the reward & critic models.'
+statement: |
+  Based on **Stanford SLP3 Chapter 8 (`8.pdf`)** and **eCornell Post-Training**:
+
+  1. **Bradley-Terry Pairwise Reward Model**: Given prompt $x$, winning completion $y_w$, and losing completion $y_l$, write the Bradley-Terry preference probability $P(y_w \succ y_l \mid x)$ and the negative log-likelihood loss $\mathcal{L}_{\text{RM}}(\phi)$. Why is a scalar reward model invariant to an additive prompt-dependent offset $r(x, y) + c(x)$?
+  2. **4 Models in Online RLHF (PPO)**: Name all 4 models held in GPU memory during PPO post-training, identify which are trainable vs. frozen, and explain the role of the per-token KL penalty $-\beta D_{\text{KL}}(\pi_\theta(y \mid x) \| \pi_{\text{ref}}(y \mid x))$.
+  3. **Direct Preference Optimization (DPO)**: Write the DPO loss $\mathcal{L}_{\text{DPO}}(\theta)$ and the implicit reward $\hat{r}_\theta(x, y) = \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{\text{ref}}(y \mid x)}$. How does the gradient weight $\sigma(\hat{r}_\theta(x, y_l) - \hat{r}_\theta(x, y_w))$ act as an adaptive margin weight?
+hints:
+- 'In Bradley-Terry, P(y_w > y_l | x) = exp(r(x, y_w)) / (exp(r(x, y_w)) + exp(r(x, y_l))) = sigma(r(x, y_w) - r(x, y_l)).'
+- 'In PPO RLHF, the 4 models are: Policy/Actor pi_theta (trainable), Critic/Value V_psi (trainable), Reference Policy pi_ref (frozen), and Reward Model r_phi (frozen).'
+- 'In DPO, only 2 models are needed (Policy pi_theta and frozen Reference pi_ref), cutting memory and eliminating online rollout instability.'
+rubric_points:
+- 'Writes Bradley-Terry probability P(y_w > y_l | x) = sigma(r_phi(x, y_w) - r_phi(x, y_l)) and loss L_RM = -E[log sigma(r_phi(x, y_w) - r_phi(x, y_l))].'
+- 'Lists all 4 PPO models (Actor pi_theta, Critic V_psi, Reference pi_ref, Reward r_phi) and explains why KL penalty prevents reward hacking / mode collapse.'
+- 'Writes DPO loss L_DPO and explains why Z(x) cancels in the Bradley-Terry difference.'
+- 'Explains DPO gradient weighting by sigma(r_hat(x, y_l) - r_hat(x, y_w)): pairs where the policy currently prefers y_l over y_w receive the largest gradient update.'
+follow_ups:
+- Why can offline DPO suffer from distribution shift or likelihood displacement (where both chosen and rejected logprobs decrease), and how does online iterative DPO or GRPO fix this?
+- How does GRPO (Group Relative Policy Optimization) eliminate the Critic/Value network V_psi in reasoning post-training?
+reference_solution: |
+  ### Model Answer (Stanford SLP3 Ch. 8 & eCornell Post-Training)
+
+  1. **Bradley-Terry Pairwise Preference & Reward Model Loss**:
+     $$P(y_w \succ y_l \mid x) = \frac{\exp(r_\phi(x, y_w))}{\exp(r_\phi(x, y_w)) + \exp(r_\phi(x, y_l))} = \sigma\big(r_\phi(x, y_w) - r_\phi(x, y_l)\big)$$
+     $$\mathcal{L}_{\text{RM}}(\phi) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}}\Big[\log \sigma\big(r_\phi(x, y_w) - r_\phi(x, y_l)\big)\Big]$$
+     - Adding any prompt-dependent function $c(x)$ leaves the difference $(r(x, y_w) + c(x)) - (r(x, y_l) + c(x))$ unchanged.
+
+  2. **The 4 Models in Online RLHF (PPO)**:
+     - **Actor / Policy $\pi_\theta(y \mid x)$** *(Trainable)*: Generates completions and is updated via clipped policy gradient.
+     - **Critic / Value Network $V_\psi(s_t)$** *(Trainable)*: Estimates expected cumulative return from token $t$ for GAE variance reduction.
+     - **Reference Policy $\pi_{\text{ref}}(y \mid x)$** *(Frozen SFT model)*: Anchors the policy via the KL penalty $-\beta \log \frac{\pi_\theta(y \mid x)}{\pi_{\text{ref}}(y \mid x)}$ to prevent **reward hacking** (exploiting out-of-distribution quirks of $r_\phi$).
+     - **Reward Model $r_\phi(x, y)$** *(Frozen)*: Scores the completed response at the `<EOS>` token.
+
+  3. **DPO Closed-Form Reparameterization & Gradient**:
+     - Solving $\max_\pi \mathbb{E}[r(x, y)] - \beta D_{\text{KL}}(\pi \| \pi_{\text{ref}})$ yields $\pi^*(y \mid x) = \frac{1}{Z(x)} \pi_{\text{ref}}(y \mid x) \exp(r(x, y)/\beta)$, so $r(x, y) = \beta \log \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} + \beta \log Z(x)$.
+     - Substituting into Bradley-Terry cancels $\beta \log Z(x)$:
+       $$\mathcal{L}_{\text{DPO}}(\theta) = -\mathbb{E}\left[\log \sigma\left(\beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)\right]$$
+     - The gradient with respect to $\theta$ weights each pair by $\sigma(\hat{r}_\theta(x, y_l) - \hat{r}_\theta(x, y_w))$, automatically up-weighting preference pairs where the current policy is still mis-ranking $y_l$ above $y_w$.
+resources:
+- title: 'Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)'
+  url: /materials/slp3_ch8_post_training.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 8
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/8.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'Direct Preference Optimization (DPO): Complete Mathematical Derivation'
+  url: https://www.youtube.com/watch?v=hvGa5Mba4c8
+  video_id: hvGa5Mba4c8
+  channel: Umar Jamil
+  duration: 46m
+  kind: youtube
+- title: 'Stanford CS224N — RLHF, Reward Modeling, PPO & DPO Lecture'
+  url: https://www.youtube.com/watch?v=D8GOeCFFby4
+  video_id: D8GOeCFFby4
+  channel: Stanford Online
+  duration: 1h 18m
+  kind: youtube

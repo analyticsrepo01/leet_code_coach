@@ -1,0 +1,154 @@
+id: M19
+slug: cme295-moe-topk-router-temperature
+title: 'Stanford CME 295: Mixture-of-Experts (MoE) Top-K Gating Router & Temperature Decoding'
+leetcode: null
+day: 3
+track: ml
+kind: coding
+pattern:
+- numpy
+- moe
+- transformers
+- sampling
+difficulty: medium
+post_training_relevance: 'Grounded in Stanford CME 295 Transformers & LLMs VIP Cheatsheet (Sections 3.1 & 3.2): implements sparse Mixture-of-Experts (MoE) top-k token routing y_hat = sum_i G(x)_i E_i(x) and temperature-scaled softmax decoding p_i = exp(x_i/T) / sum_j exp(x_j/T).'
+statement: |
+  In **Stanford CME 295 (Transformers & Large Language Models VIP Cheatsheet, Sections 3.1 & 3.2)**, modern frontier LLMs (such as DeepSeek, Mixtral, and GPT-class models) combine two core mechanisms:
+
+  1. **Sparse Mixture of Experts (MoE)** in Feed-Forward layers:
+     Instead of activating every FFN parameter for every token, a router gate $G(x)$ selects the **top-$k$** experts out of $n$ experts $E_1, \dots, E_n$:
+     $$\hat{y} = \sum_{i \in \text{TopK}(r)} G(x)_i \, E_i(x)$$
+     where $r \in \mathbb{R}^n$ are the router logits for token $x$, and $G(x)_i$ is the **softmax normalized exclusively over the top-$k$ router logits** (with $G(x)_i = 0$ for all non-selected experts, breaking ties by **smaller expert index**).
+
+  2. **Temperature-Scaled Decoding** (`sampling_probs`):
+     Given next-token logits $z \in \mathbb{R}^V$ and temperature $T > 0$, the sampling distribution is:
+     $$p_i = \frac{\exp(z_i / T)}{\sum_{j=1}^{V} \exp(z_j / T)}$$
+
+  ### Task
+  Implement `moe_layer_and_temperature(router_logits, expert_outputs, k, next_token_logits, temperature)` in Python / NumPy and return `[active_experts, gate_weights, moe_output, sampling_probs]` where floats are rounded to 6 decimal places.
+examples:
+- input: router_logits = [2.0, 0.5, 3.0, -1.0], expert_outputs = [[1.0, 0.0], [0.0, 1.0], [2.0, 4.0], [10.0, 10.0]], k = 2, next_token_logits = [1.0, 2.0, 0.0], temperature = 0.5
+  output: '[[0, 2], [0.268941, 0.0, 0.731059, 0.0], [1.731059, 2.924234], [0.11731, 0.866813, 0.015876]]'
+  explanation: 'Top-2 experts are indices 2 (logit 3.0) and 0 (logit 2.0). Softmax over [2.0, 3.0] gives [0.268941, 0.731059].'
+constraints:
+- 1 <= k <= n <= 64
+- 1 <= d_model, V <= 512
+- temperature > 0
+function_name: moe_layer_and_temperature
+starter_code: |
+  import math
+
+  def moe_layer_and_temperature(
+      router_logits: list[float],
+      expert_outputs: list[list[float]],
+      k: int,
+      next_token_logits: list[float],
+      temperature: float,
+  ):
+      # Return [active_experts, gate_weights, moe_output, sampling_probs]
+      pass
+tests:
+- args:
+  - [2.0, 0.5, 3.0, -1.0]
+  - - [1.0, 0.0]
+    - [0.0, 1.0]
+    - [2.0, 4.0]
+    - [10.0, 10.0]
+  - 2
+  - [1.0, 2.0, 0.0]
+  - 0.5
+  expected:
+  - [0, 2]
+  - [0.268941, 0.0, 0.731059, 0.0]
+  - [1.731059, 2.924234]
+  - [0.11731, 0.866813, 0.015876]
+hidden_tests:
+- args:
+  - [0.1, 1.5, 0.2]
+  - - [1.0, 2.0, 3.0]
+    - [4.0, 5.0, 6.0]
+    - [7.0, 8.0, 9.0]
+  - 1
+  - [2.0, 2.0, 2.0, 2.0]
+  - 2.0
+  expected:
+  - [1]
+  - [0.0, 1.0, 0.0]
+  - [4.0, 5.0, 6.0]
+  - [0.25, 0.25, 0.25, 0.25]
+compare: exact
+time_limit_ms: 2000
+hints:
+- 'Sort expert indices by (-router_logits[i], i) to select the top-k experts, then sort those k indices in ascending order for active_experts.'
+- 'Subtract max(router_logits[i] for i in active_experts) before exponentiating for numerical stability.'
+- 'For temperature decoding, divide each next_token_logit by T first, then subtract max(z / T) before applying exp.'
+optimal:
+  time: O(n log n + k * d_model + V)
+  space: O(n + d_model + V)
+follow_ups:
+- 'In Stanford CME 295 Section 6.2, what is Expert Parallelism and how does it differ from Tensor Parallelism and Pipeline Parallelism when training MoE LLMs?'
+- 'What is "context rot" (CME 295 Section 3.2), and how does temperature T << 1 vs T > 1 change the entropy of the next-token distribution?'
+reference_solution: |
+  import math
+
+  def moe_layer_and_temperature(
+      router_logits: list[float],
+      expert_outputs: list[list[float]],
+      k: int,
+      next_token_logits: list[float],
+      temperature: float,
+  ):
+      n = len(router_logits)
+      d_model = len(expert_outputs[0]) if expert_outputs else 0
+
+      # 1. Select Top-K experts (tie-break by smaller index)
+      ranked_indices = sorted(range(n), key=lambda i: (-router_logits[i], i))
+      active_experts = sorted(ranked_indices[:k])
+
+      # 2. Compute numerically stable softmax over the Top-K router logits
+      max_r = max(router_logits[i] for i in active_experts)
+      exp_r = {i: math.exp(router_logits[i] - max_r) for i in active_experts}
+      sum_exp_r = sum(exp_r.values())
+
+      gate_weights = [0.0] * n
+      for i in active_experts:
+          gate_weights[i] = exp_r[i] / sum_exp_r
+
+      # 3. Compute weighted sum of active expert outputs: y_hat = sum_i G(x)_i E_i(x)
+      moe_out = [0.0] * d_model
+      for i in active_experts:
+          w = gate_weights[i]
+          e_vec = expert_outputs[i]
+          for d in range(d_model):
+              moe_out[d] += w * e_vec[d]
+
+      # 4. Compute temperature-scaled softmax over next_token_logits
+      scaled_logits = [z / temperature for z in next_token_logits]
+      max_z = max(scaled_logits)
+      exp_z = [math.exp(z - max_z) for z in scaled_logits]
+      sum_exp_z = sum(exp_z)
+      sampling_probs = [round(val / sum_exp_z, 6) for val in exp_z]
+
+      return [
+          active_experts,
+          [round(w, 6) for w in gate_weights],
+          [round(v, 6) for v in moe_out],
+          sampling_probs,
+      ]
+resources:
+- title: 'Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)'
+  url: /materials/stanford_cme295_cheatsheet_transformers_llms.pdf
+  channel: Afshine Amidi & Shervine Amidi (Stanford CME 295)
+  duration: 6-Page Cheatsheet PDF
+  kind: pdf
+- title: 'Stanford CME 295 Cheatsheet Official GitHub PDF'
+  url: https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf
+  channel: Stanford CME 295 GitHub
+  duration: Official PDF
+  kind: pdf
+- title: 'Mixture of Experts (MoE) in Large Language Models Visually Explained'
+  url: https://www.youtube.com/watch?v=sOPDGQjFcuM
+  video_id: sOPDGQjFcuM
+  channel: Umar Jamil
+  duration: 38m
+  kind: youtube

@@ -35,7 +35,7 @@ export const ProblemList: React.FC = () => {
   } = useAppStore();
 
   const [trackFilter, setTrackFilter] = useState<
-    'all' | 'cs' | 'ds' | 'ml' | 'theory'
+    'all' | 'slp3' | 'cs' | 'ds' | 'ml' | 'theory'
   >('all');
   const [difficultyFilter, setDifficultyFilter] = useState<
     'all' | 'easy' | 'medium' | 'hard'
@@ -53,12 +53,30 @@ export const ProblemList: React.FC = () => {
 
   if (!showProblemDrawer) return null;
 
+  const isSlp3OrEcornell = (p: { id: string; pattern: string[]; title: string }) =>
+    ['M17', 'M18', 'M19', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17'].includes(
+      p.id
+    ) ||
+    p.pattern.some(
+      (pat) =>
+        pat.includes('stanford_slp3') ||
+        pat.includes('ecornell') ||
+        pat.includes('cme295')
+    ) ||
+    p.title.includes('Stanford SLP3') ||
+    p.title.includes('Stanford CME 295') ||
+    p.title.includes('eCornell');
+
   const allPatterns = Array.from(
     new Set(problems.flatMap((p) => p.pattern))
   ).sort();
 
   const filtered = problems.filter((p) => {
-    if (trackFilter !== 'all' && p.track !== trackFilter) return false;
+    if (trackFilter === 'slp3') {
+      if (!isSlp3OrEcornell(p)) return false;
+    } else if (trackFilter !== 'all' && p.track !== trackFilter) {
+      return false;
+    }
     if (
       difficultyFilter !== 'all' &&
       p.difficulty.toLowerCase() !== difficultyFilter
@@ -126,6 +144,7 @@ export const ProblemList: React.FC = () => {
     }
   };
 
+  const slp3Count = problems.filter((p) => isSlp3OrEcornell(p)).length;
   const csCount = problems.filter((p) => p.track === 'cs').length;
   const dsCount = problems.filter((p) => p.track === 'ds').length;
   const mlCount = problems.filter((p) => p.track === 'ml').length;
@@ -138,11 +157,11 @@ export const ProblemList: React.FC = () => {
         <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-white">
-              LeetCode, CS Classics, Quant DS &amp; Post-Training Problem Bank
+              LeetCode, CS Classics, Quant DS &amp; Stanford SLP3 / eCornell Post-Training Bank
             </h2>
             <p className="text-xs text-slate-400">
               {solvedIds.length} of {problems.length} completed · CS Classics,
-              Quant DS&amp;A, NumPy Post-Training &amp; Theory
+              Quant DS&amp;A, NumPy Post-Training, Stanford SLP3 &amp; eCornell Theory
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -243,6 +262,11 @@ export const ProblemList: React.FC = () => {
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
               { id: 'all', label: `All (${problems.length})`, icon: Layers },
+              {
+                id: 'slp3',
+                label: `🧠 Stanford SLP3, CME 295 & eCornell (${slp3Count})`,
+                icon: Sparkles,
+              },
               {
                 id: 'cs',
                 label: `CS & LeetCode Classics (${csCount})`,

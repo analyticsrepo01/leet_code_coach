@@ -1,0 +1,75 @@
+id: T16
+slug: cme295-reasoning-scaling-opd-grpo-drgrpo-dapo
+title: 'Stanford CME 295: Reasoning Scaling (Train vs. Test-Time "Wait"), On-Policy Distillation (OPD) & GRPO / Dr. GRPO / DAPO'
+kind: theory
+track: theory
+day: 3
+pattern:
+- grpo
+- rlvr
+- distillation
+- theory
+difficulty: hard
+post_training_relevance: 'Directly covers Stanford CME 295 VIP Cheatsheet Sections 4.4 (Reasoning & OPD) and 5.3 (GRPO, Verifiable Rewards, Dr. GRPO & DAPO).'
+statement: |
+  Based on the **Stanford CME 295 Transformers & Large Language Models VIP Cheatsheet (`cheatsheet-transformers-large-language-models.pdf`, Sections 4.4 & 5.3)**:
+
+  1. **Reasoning Models — Train-Time vs. Test-Time Scaling**:
+     - How does **Train-time scaling** (running RL for more steps to induce Chain-of-Thought reasoning traces) differ from **Test-time scaling** (extending CoT length at inference time using budget-forcing keywords such as `"Wait"`)?
+  2. **On-Policy Distillation (OPD)**:
+     - What is **On-Policy Distillation (OPD)** in post-training? Why does sampling trajectories on-policy from the student model and querying a stronger teacher for **token-level supervision** provide a much denser learning signal than sparse sequence-level RL rewards?
+  3. **GRPO with Verifiable Rewards, Dr. GRPO & DAPO**:
+     - Write the **GRPO** group-normalized advantage $\hat{A}_i$ and objective $\mathcal{L}_{\text{GRPO}}$ for a group of $G$ sampled responses scored by a verifiable reward $R_i$.
+     - Why does standard GRPO omit a separate Critic/Value network $V_\psi$?
+     - According to the CME 295 cheatsheet, what specific limitations of vanilla GRPO do **Dr. GRPO** and **DAPO** solve?
+hints:
+- 'Train-time scaling increases RL training steps so the policy learns self-correction and CoT; test-time scaling forces longer thinking chains at inference time (e.g., appending "Wait" when the model tries to terminate early).'
+- 'In OPD, trajectories come from the student policy (preventing exposure bias / distribution mismatch), while the teacher supplies log-probability feedback at every token position rather than a single scalar reward at EOS.'
+- 'Dr. GRPO removes length-related bias (dividing by response length |y_i| and group std bias), while DAPO introduces decoupled clipping (clip-higher) and dynamic sampling to preserve entropy and exploration.'
+rubric_points:
+- 'Contrasts train-time RL scaling (RL steps vs performance) with test-time compute scaling (CoT token budget forcing via "Wait" tokens).'
+- 'Defines On-Policy Distillation (OPD): student-sampled rollouts supervised at the token level by a stronger teacher, contrasting dense per-token KL/logit signals against sparse sequence-level rewards.'
+- 'Writes GRPO advantage A_hat_i = (R_i - mean(R_1..R_G)) / std(R_1..R_G) and clipped surrogate objective with explicit KL penalty beta * D_KL(pi_theta || pi_ref).'
+- 'Explains Dr. GRPO (correcting length-related bias in GRPO) and DAPO (modified asymmetric clipping and dynamic sampling for stability and exploration).'
+follow_ups:
+- 'How does Best-of-N (BoN) / Rejection Sampling k = argmax_{i in [1..N]} r(x, y_hat_i) trade off inference compute against RLHF training compute?'
+- 'Why do verifiable rewards (math answer checkers, unit test sandboxes, Lean proofs) resist reward hacking much better than learned neural reward models?'
+reference_solution: |
+  ### Model Answer (Stanford CME 295 VIP Cheatsheet — Sections 4.4 & 5.3)
+
+  1. **Reasoning Models: Train-Time vs. Test-Time Scaling**:
+     - **Chain-of-Thought (CoT)**: Decomposes complex math, coding, and logic problems into intermediate reasoning steps before emitting the final answer.
+     - **Train-Time Scaling**: Runs Reinforcement Learning (RL) for longer across verifiable tasks so the policy autonomously discovers reasoning behaviors (branching, backtracking, verification) as RL steps increase.
+     - **Test-Time Scaling**: Allocates more inference tokens by letting the model think longer before answering—for example, **budget forcing** by intercepting early end-of-thought tokens and appending keywords like `"Wait"` to force deeper verification.
+
+  2. **On-Policy Distillation (OPD)**:
+     - **Mechanism**: Sample trajectories $y \sim \pi_\theta(\cdot \mid x)$ **on-policy from the student model**, then evaluate the stronger **teacher model** $\pi_{\text{teacher}}$ on those exact student trajectories to provide **token-level supervision** (e.g., per-token reverse KL or logit distillation at every step $t$).
+     - **Why OPD beats Offline Distillation & Sparse RL**:
+       - Unlike offline SFT on teacher trajectories (which suffers from exposure bias when the student drifts off-distribution), OPD trains on states the student actually visits.
+       - Unlike sequence-level RL (which gives a single scalar reward $R(x, y)$ at the final token), OPD gives a **dense token-level gradient signal** at every token position $t$.
+
+  3. **GRPO, Verifiable Rewards, Dr. GRPO & DAPO**:
+     - **Verifiable Rewards**: Objectively checkable outcomes (exact math answers, unit-test execution, formal proofs) that do not require a learned neural Reward Model.
+     - **GRPO Formulation**: Sample $G$ completions $\{y_1, \dots, y_G\} \sim \pi_{\theta_{\text{old}}}(\cdot \mid x)$, score each with $R_i$, and compute the group-relative advantage without a Value/Critic network:
+       $$\hat{A}_i = \frac{R_i - \text{mean}(R_1, \dots, R_G)}{\text{std}(R_1, \dots, R_G)}$$
+       $$\mathcal{L}_{\text{GRPO}} = \frac{1}{G}\sum_{i=1}^{G} \mathbb{E}_t \left[ \min\!\Big(r_{i,t}(\theta)\hat{A}_i,\; \text{clip}(r_{i,t}(\theta), 1-\epsilon, 1+\epsilon)\hat{A}_i\Big) - \beta D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) \right]$$
+     - **Dr. GRPO & DAPO Extensions**:
+       - **Dr. GRPO** (*Done Right GRPO*): Removes the per-response length normalization $1/|y_i|$ and group standard-deviation bias that cause vanilla GRPO to artificially lengthen incorrect responses and shorten correct ones (**length bias**).
+       - **DAPO** (*Decoupled Clip and Dynamic sAmpling Policy Optimization*): Uses asymmetric upper/lower clipping ($\epsilon_{\text{high}} > \epsilon_{\text{low}}$) to prevent entropy collapse and **dynamic sampling** to filter out prompt groups where all $G$ responses have identical rewards ($\text{std} = 0$).
+resources:
+- title: 'Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)'
+  url: /materials/stanford_cme295_cheatsheet_transformers_llms.pdf
+  channel: Afshine Amidi & Shervine Amidi (Stanford CME 295)
+  duration: 6-Page Cheatsheet PDF
+  kind: pdf
+- title: 'Stanford CME 295 Cheatsheet Official GitHub PDF'
+  url: https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf
+  channel: Stanford CME 295 GitHub
+  duration: Official PDF
+  kind: pdf
+- title: 'DeepSeek-R1, GRPO, Verifiable Rewards & Reasoning Scaling Explained'
+  url: https://www.youtube.com/watch?v=DCqqCL29Bc8
+  video_id: DCqqCL29Bc8
+  channel: Yannic Kilcher
+  duration: 1h 05m
+  kind: youtube

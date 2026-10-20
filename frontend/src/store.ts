@@ -98,6 +98,23 @@ export const DEFAULT_PERSONAS: UserPersonaItem[] = [
     preferred_theme: 'dark',
     is_builtin: true,
   },
+  {
+    id: 'persona-llm-ml',
+    name: 'LLM & ML Learning (Stanford SLP3, CME 295 & eCornell Post-Training)',
+    avatar_emoji: '🧠',
+    role: 'LLM Architecture, Alignment & Post-Training Learner',
+    experience_level: 'advanced',
+    coding_background:
+      'Studying Stanford SLP3 Ch. 8 (Post-Training: SFT, LoRA, Bradley-Terry Reward Models, RLHF PPO, DPO), Stanford SLP3 Transformer Slides (Multi-Head Self-Attention, Pre-LN Residual Stream, KV Cache, RoPE), Stanford SLP3 Ch. 9 (Masked Language Modeling, BERT 80/10/10, [CLS], BIO NER), Stanford CME 295 VIP Cheatsheet (MoE, Context Rot, Train/Test-Time Scaling, OPD, GRPO/Dr.GRPO/DAPO, FlashAttention, PagedAttention, Speculative Decoding, ReAct/RAG, LaaJ biases, Diffusion LLMs), and eCornell LLM Post-Training.',
+    coaching_style:
+      'Professor & Post-Training Research Mentor grounded in Stanford SLP3 (Jurafsky & Martin), Stanford CME 295 (Amidi & Amidi), and eCornell Post-Training curriculum. Cite exact equations, tensor shapes, parameter counts, and section references from SLP3 Ch. 8, Transformer Slides, Ch. 9, and CME 295 Cheatsheet, plus recommend relevant YouTube lectures.',
+    preferred_mode: 'tutor',
+    preferred_voice: 'Puck',
+    preferred_track: 'ml',
+    preferred_difficulty: 'all',
+    preferred_theme: 'dark',
+    is_builtin: true,
+  },
 ];
 
 function loadLocalNotes(): RevisionNoteItem[] {
@@ -122,7 +139,15 @@ function loadLocalPersonas(): UserPersonaItem[] {
     const raw = localStorage.getItem(PERSONAS_STORAGE_KEY);
     if (!raw) return DEFAULT_PERSONAS;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_PERSONAS;
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_PERSONAS;
+    const byId = new Map<string, UserPersonaItem>();
+    for (const p of parsed) {
+      if (p && p.id) byId.set(p.id, p);
+    }
+    for (const p of DEFAULT_PERSONAS) {
+      byId.set(p.id, p);
+    }
+    return Array.from(byId.values());
   } catch {
     return DEFAULT_PERSONAS;
   }

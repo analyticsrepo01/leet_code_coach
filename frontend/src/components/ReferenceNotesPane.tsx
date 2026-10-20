@@ -18,6 +18,8 @@ import {
   GraduationCap,
   Play,
   Link2,
+  FileText,
+  Upload,
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import {
@@ -29,10 +31,13 @@ import {
   saveRevisionNoteApi,
   searchLearningResourcesApi,
   synthesizeRevisionNoteApi,
+  uploadCoursePdfNoteApi,
 } from '../api';
 import { coachSocket } from '../coach/CoachSocket';
 
 const DEFAULT_CATEGORIES = [
+  'Stanford SLP3 & Post-Training',
+  'eCornell Post-Training',
   'Python Fundamentals',
   'Hash Maps',
   'Dynamic Programming',
@@ -46,6 +51,14 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const QUICK_SCRATCH_TOPICS = [
+  'Stanford CME 295: MoE Routing, RoPE & Context Rot',
+  'Stanford CME 295: Reasoning Scaling ("Wait"), OPD & GRPO / Dr. GRPO / DAPO',
+  'Stanford CME 295: FlashAttention, PagedAttention, Speculative Decoding & dLLMs',
+  'Stanford SLP3 Ch. 8: LoRA & Instruction Tuning (SFT)',
+  'Stanford SLP3 Ch. 8: Bradley-Terry, RLHF PPO & DPO',
+  'Stanford SLP3 Slides: Multi-Head Self-Attention & KV Cache',
+  'Stanford SLP3 Ch. 9: BERT 80/10/10 Masked LM & BIO NER',
+  'eCornell Post-Training: SFT vs DPO vs GRPO & Reward Hacking',
   'Python dict & Hash Maps from scratch',
   'Counter & defaultdict in Python',
   'Min/Max Heaps with heapq',
@@ -54,6 +67,43 @@ const QUICK_SCRATCH_TOPICS = [
   'Binary Search & bisect module',
   'Top-Down DP & @functools.cache',
   'Log-Sum-Exp & Softmax Numerics',
+];
+
+const STANFORD_COURSE_PDFS: Array<{
+  title: string;
+  localUrl: string;
+  stanfordUrl: string;
+  problemId: string;
+  summary: string;
+}> = [
+  {
+    title: 'Stanford CME 295 VIP Cheatsheet — Transformers & Large Language Models (cheatsheet-transformers-large-language-models.pdf)',
+    localUrl: '/materials/stanford_cme295_cheatsheet_transformers_llms.pdf',
+    stanfordUrl: 'https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf',
+    problemId: 'T16',
+    summary: '6-page Stanford CME 295 VIP Cheatsheet (Amidi & Amidi): Tokens/BPE, MHA/GQA/MQA, RoPE, MoE, Context Rot, SFT/LoRA, BoN/RLHF/DPO, Train vs Test-Time Scaling ("Wait"), On-Policy Distillation (OPD), PPO & GRPO/Dr.GRPO/DAPO, FlashAttention, PagedAttention, 4D Parallelism, Speculative Decoding, ReAct/RAG, LLM-as-a-Judge biases, and Diffusion LLMs (dLLMs).',
+  },
+  {
+    title: 'Stanford SLP3 Ch. 8 — Post-Training: Instruction Tuning, Alignment & LoRA (8.pdf)',
+    localUrl: '/materials/slp3_ch8_post_training.pdf',
+    stanfordUrl: 'https://web.stanford.edu/~jurafsky/slp3/8.pdf',
+    problemId: 'T11',
+    summary: 'SFT loss masking, LoRA low-rank adapters, Bradley-Terry reward models, 4-model PPO RLHF, and closed-form DPO.',
+  },
+  {
+    title: 'Stanford SLP3 Lecture Slides — Transformers & Multi-Head Self-Attention (transformer_aug26.pdf)',
+    localUrl: '/materials/slp3_transformer_slides_aug26.pdf',
+    stanfordUrl: 'https://web.stanford.edu/~jurafsky/slp3/slides/transformer_aug26.pdf',
+    problemId: 'T13',
+    summary: 'Scaled dot-product attention 1/√d_k, causal mask, Pre-LN residual stream, SwiGLU MLP, RoPE, and KV Cache.',
+  },
+  {
+    title: 'Stanford SLP3 Ch. 9 — Masked Language Models, BERT 80/10/10 & BIO Span Tagging (9.pdf)',
+    localUrl: '/materials/slp3_ch9_masked_lm.pdf',
+    stanfordUrl: 'https://web.stanford.edu/~jurafsky/slp3/9.pdf',
+    problemId: 'T14',
+    summary: 'Bidirectional encoder attention, BERT 15% (80/10/10) corruption rule, [CLS] pooling, and BIO sequence labeling.',
+  },
 ];
 
 export const ReferenceNotesPane: React.FC = () => {
@@ -72,12 +122,16 @@ export const ReferenceNotesPane: React.FC = () => {
   } = useAppStore();
 
   const [activeGeneratorTab, setActiveGeneratorTab] = useState<
-    'tutorial' | 'discussion' | 'youtube_search'
+    'tutorial' | 'discussion' | 'youtube_search' | 'course_pdfs'
   >('tutorial');
+
+  // Course PDF Upload state (eCornell / Stanford)
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [pdfCourseTag, setPdfCourseTag] = useState('eCornell Post-Training');
 
   // Tutorial from scratch state
   const [tutorialTopic, setTutorialTopic] = useState(
-    'Python dict & Hash Maps from scratch'
+    'Stanford SLP3 Ch. 8: LoRA & Instruction Tuning (SFT)'
   );
   const [isGeneratingTutorial, setIsGeneratingTutorial] = useState(false);
 
@@ -489,6 +543,34 @@ export const ReferenceNotesPane: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleUploadCoursePdf = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPdf(true);
+    setStatusBanner(
+      `Extracting text & synthesizing Reference Note from "${file.name}" (${pdfCourseTag})...`
+    );
+    try {
+      const note = await uploadCoursePdfNoteApi(
+        file,
+        pdfCourseTag,
+        currentProblem?.id || 'T15'
+      );
+      addOrUpdateRevisionNote(note, false);
+      showTempBanner(
+        `Uploaded "${file.name}" & created Reference Note "${note.title}"!`,
+        6000
+      );
+    } catch (err: any) {
+      showTempBanner(`PDF upload error: ${err?.message || err}`, 6000);
+    } finally {
+      setUploadingPdf(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-slate-900/60 overflow-hidden">
       {/* Header & Mode Switcher */}
@@ -522,11 +604,11 @@ export const ReferenceNotesPane: React.FC = () => {
           </div>
         </div>
 
-        {/* 3-Mode Action Switcher: 5-Min Tutorial | Summarize Chat | Search YouTube */}
-        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+        {/* 4-Mode Action Switcher: 5m Tutorial | From Chat | YouTube | PDFs / eCornell */}
+        <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
           <button
             onClick={() => setActiveGeneratorTab('tutorial')}
-            className={`inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded text-[11px] font-semibold transition ${
+            className={`inline-flex items-center justify-center gap-1 py-1 px-1 rounded text-[10px] font-semibold transition ${
               activeGeneratorTab === 'tutorial'
                 ? 'bg-emerald-600 text-white'
                 : 'text-slate-400 hover:text-slate-200'
@@ -537,7 +619,7 @@ export const ReferenceNotesPane: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveGeneratorTab('discussion')}
-            className={`inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded text-[11px] font-semibold transition ${
+            className={`inline-flex items-center justify-center gap-1 py-1 px-1 rounded text-[10px] font-semibold transition ${
               activeGeneratorTab === 'discussion'
                 ? 'bg-emerald-600 text-white'
                 : 'text-slate-400 hover:text-slate-200'
@@ -548,14 +630,25 @@ export const ReferenceNotesPane: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveGeneratorTab('youtube_search')}
-            className={`inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded text-[11px] font-semibold transition ${
+            className={`inline-flex items-center justify-center gap-1 py-1 px-1 rounded text-[10px] font-semibold transition ${
               activeGeneratorTab === 'youtube_search'
                 ? 'bg-rose-600 text-white'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Youtube className="w-3 h-3" />
-            <span>YouTube Search</span>
+            <span>YouTube</span>
+          </button>
+          <button
+            onClick={() => setActiveGeneratorTab('course_pdfs')}
+            className={`inline-flex items-center justify-center gap-1 py-1 px-1 rounded text-[10px] font-semibold transition ${
+              activeGeneratorTab === 'course_pdfs'
+                ? 'bg-amber-600 text-white'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileText className="w-3 h-3" />
+            <span>PDFs / eCornell</span>
           </button>
         </div>
 
@@ -770,6 +863,104 @@ export const ReferenceNotesPane: React.FC = () => {
           </div>
         )}
 
+        {/* TAB 4: Stanford SLP3 PDFs & eCornell Post-Training PDF Uploader */}
+        {activeGeneratorTab === 'course_pdfs' && (
+          <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/30 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-amber-200 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-400" />
+                <span>Stanford SLP3 PDFs &amp; eCornell Post-Training</span>
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              {STANFORD_COURSE_PDFS.map((pdf) => (
+                <div
+                  key={pdf.localUrl}
+                  className="p-2 rounded bg-slate-950/90 border border-slate-800 space-y-1"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-slate-100 truncate">
+                      {pdf.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProblem(pdf.problemId)}
+                      className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25"
+                    >
+                      Open {pdf.problemId}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    {pdf.summary}
+                  </p>
+                  <div className="flex items-center gap-2 pt-0.5 text-[10px]">
+                    <a
+                      href={pdf.localUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 font-semibold"
+                    >
+                      <FileText className="w-2.5 h-2.5" />
+                      <span>Open Local PDF</span>
+                    </a>
+                    <a
+                      href={pdf.stanfordUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      <span>Stanford URL</span>
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* eCornell / Custom PDF Uploader */}
+            <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
+              <div className="text-[10px] font-semibold text-amber-300">
+                Upload eCornell Post-Training or Custom Course PDF (Auto-Summarizes &amp; Attaches Note)
+              </div>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={pdfCourseTag}
+                  onChange={(e) => setPdfCourseTag(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] text-slate-200"
+                >
+                  <option value="eCornell Post-Training">
+                    eCornell Post-Training
+                  </option>
+                  <option value="Stanford SLP3 & Post-Training">
+                    Stanford SLP3 &amp; Post-Training
+                  </option>
+                </select>
+                <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer transition">
+                  {uploadingPdf ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Processing PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload PDF</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    disabled={uploadingPdf}
+                    onChange={handleUploadCoursePdf}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
         {statusBanner && (
           <div className="text-[11px] text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 rounded px-2.5 py-1.5">
             {statusBanner}
@@ -969,7 +1160,7 @@ export const ReferenceNotesPane: React.FC = () => {
             <p className="leading-relaxed">
               Pick a topic above (like{' '}
               <span className="text-emerald-300 font-mono">
-                Python dict &amp; Hash Maps
+                Stanford SLP3 Ch. 8: LoRA &amp; Instruction Tuning
               </span>
               ) and click <strong>5-Min Note + YouTube</strong> or{' '}
               <strong>Teach Me Live</strong> to learn any concept from scratch
@@ -1086,7 +1277,7 @@ export const ReferenceNotesPane: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-300">
                     <Youtube className="w-3.5 h-3.5 text-rose-400" />
-                    YouTube Tutorials &amp; Links ({note.resources?.length || 0})
+                    Course PDFs, YouTube &amp; Links ({note.resources?.length || 0})
                   </span>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -1162,7 +1353,9 @@ export const ReferenceNotesPane: React.FC = () => {
                             rel="noopener noreferrer"
                             className="font-medium text-slate-200 hover:text-rose-300 flex items-center gap-1.5 truncate"
                           >
-                            {res.kind === 'docs' ? (
+                            {res.kind === 'pdf' || res.url.endsWith('.pdf') ? (
+                              <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            ) : res.kind === 'docs' ? (
                               <ExternalLink className="w-3 h-3 text-indigo-400 shrink-0" />
                             ) : (
                               <Youtube className="w-3.5 h-3.5 text-rose-400 shrink-0" />

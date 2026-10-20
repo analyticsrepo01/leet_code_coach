@@ -1,0 +1,72 @@
+id: T13
+slug: slp3-transformer-attention-residual-kv
+title: 'Stanford SLP3 Transformer Slides: Scaled Dot-Product Attention, Pre-LN Residual Stream & KV Cache'
+kind: theory
+track: theory
+day: 3
+pattern:
+- attention
+- transformers
+- theory
+difficulty: medium
+post_training_relevance: 'Grounded in Stanford SLP3 Transformer Lecture Slides (transformer_aug26.pdf): derives 1/sqrt(d_k) variance scaling, Multi-Head projection shapes, Pre-LN residual stream highway, and KV cache memory arithmetic.'
+statement: |
+  Based on the **Stanford SLP3 Transformer Lecture Slides (`transformer_aug26.pdf`)**:
+
+  1. **Scaled Dot-Product Attention & Variance Proof**: Write the causal self-attention equation $\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right)V$. Assuming $q_i, k_j \sim \mathcal{N}(0, 1)$ i.i.d., prove why $\text{Var}(q \cdot k) = d_k$ and what happens to the softmax Jacobian if you omit $\frac{1}{\sqrt{d_k}}$.
+  2. **Multi-Head Attention (MHA) Shapes**: Given sequence length $N$, model dimension $d_{\text{model}}$, and $h$ heads with $d_k = d_v = d_{\text{model}} / h$, trace the exact tensor shapes of $X$, $Q_i = X W_i^Q$, $A_i = \text{softmax}(Q_i K_i^\top / \sqrt{d_k})$, $\text{head}_i = A_i V_i$, and $\text{Concat}(\text{head}_1, \dots, \text{head}_h) W^O$.
+  3. **Pre-LN Residual Stream**: Write the modern Pre-LayerNorm Transformer block equations $x' = x + \text{MHA}(\text{LN}(x))$ and $y = x' + \text{MLP}(\text{LN}(x'))$. Why does Pre-LN allow unobstructed gradient flow $\frac{\partial x_L}{\partial x_l} = I + \dots$ from the final layer to layer 1 without a fragile learning-rate warmup?
+hints:
+- 'The sum of d_k independent mean-0 unit-variance products q_r * k_r has mean 0 and variance d_k. Dividing by sqrt(d_k) restores variance 1.'
+- 'When logits have large variance d_k, softmax saturates to a one-hot vector [1, 0, ..., 0] where all Jacobian entries p_i (delta_ij - p_j) vanish!'
+- 'In Pre-LN, LayerNorm is applied on the branch input, leaving an identity connection x_{l+1} = x_l + f_l(LN(x_l)) along the residual stream.'
+rubric_points:
+- 'Derives E[q·k] = 0 and Var(q·k) = d_k, explaining softmax saturation and vanishing gradients without 1/sqrt(d_k).'
+- 'Traces exact tensor shapes through Multi-Head Attention: (N, d_model) -> h heads of (N, d_k) -> attention matrix (N, N) -> concat (N, h*d_v) -> output projection (N, d_model).'
+- 'Contrasts Pre-LN vs Post-LN residual stream and shows identity gradient highway I + d/dx_l sum f_m(LN(x_m)).'
+- 'States causal mask M_{ij} = 0 for j <= i and -infinity for j > i so token i cannot attend to future tokens.'
+follow_ups:
+- How do Multi-Query Attention (MQA) and Grouped-Query Attention (GQA) shrink the KV cache during autoregressive decoding?
+- Compute the KV cache size in GB for a 70B model (L=80 layers, g=8 KV heads, d_k=128, BF16, batch B=16, seqlen N=8192).
+reference_solution: |
+  ### Model Answer (Stanford SLP3 Transformer Lecture Slides `transformer_aug26.pdf`)
+
+  1. **Scaled Dot-Product Attention & $\frac{1}{\sqrt{d_k}}$ Variance Proof**:
+     $$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right)V, \quad M_{ij} = \begin{cases} 0 & j \le i \\ -\infty & j > i \end{cases}$$
+     - If $q_r, k_r$ are independent with mean $0$ and variance $1$, then $\mathbb{E}[q_r k_r] = 0$ and $\text{Var}(q_r k_r) = \mathbb{E}[q_r^2]\mathbb{E}[k_r^2] = 1$.
+     - Summing over $d_k$ dimensions gives $\mathbb{E}[q \cdot k] = 0$ and $\text{Var}(q \cdot k) = \sum_{r=1}^{d_k} 1 = d_k$ (standard deviation $\sqrt{d_k}$).
+     - Without dividing by $\sqrt{d_k}$, for $d_k = 128$ the dot products take values around $\pm 20$, pushing $\text{softmax}(z)$ into saturation ($p \approx [1, 0, \dots, 0]$), where the Jacobian $\frac{\partial p_i}{\partial z_j} = p_i(\delta_{ij} - p_j) \approx 0$, killing gradients for $Q$ and $K$.
+
+  2. **Multi-Head Attention (MHA) Shapes**:
+     - Input $X \in \mathbb{R}^{N \times d_{\text{model}}}$.
+     - Per-head projections: $W_i^Q, W_i^K \in \mathbb{R}^{d_{\text{model}} \times d_k}$, $W_i^V \in \mathbb{R}^{d_{\text{model}} \times d_v}$, producing $Q_i, K_i, V_i \in \mathbb{R}^{N \times d_k}$ where $d_k = d_{\text{model}} / h$.
+     - Per-head attention weights: $A_i = \text{softmax}(Q_i K_i^\top / \sqrt{d_k} + M) \in \mathbb{R}^{N \times N}$, output $\text{head}_i = A_i V_i \in \mathbb{R}^{N \times d_v}$.
+     - Concatenate $h$ heads to shape $(N, h \cdot d_v) = (N, d_{\text{model}})$ and multiply by $W^O \in \mathbb{R}^{d_{\text{model}} \times d_{\text{model}}}$.
+
+  3. **Pre-LN Residual Stream**:
+     $$x' = x + \text{MHA}(\text{LN}(x)), \quad y = x' + \text{MLP}(\text{LN}(x'))$$
+     - Unrolling across $L$ layers yields $x_L = x_0 + \sum_{l=1}^{L} f_l(\text{LN}(x_{l-1}))$.
+     - Therefore $\frac{\partial x_L}{\partial x_0} = I + \sum_{l=1}^{L} \frac{\partial f_l}{\partial x_0}$: gradients flow unimpeded through the identity matrix $I$ from the output loss directly to early layers.
+resources:
+- title: 'Stanford SLP3 Transformer & Self-Attention Slides PDF (Local PDF)'
+  url: /materials/slp3_transformer_slides_aug26.pdf
+  channel: Jurafsky & Martin (Stanford SLP3 Slides)
+  duration: Lecture Slides PDF
+  kind: pdf
+- title: 'Stanford SLP3 Transformer Slides Official URL (transformer_aug26.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/slides/transformer_aug26.pdf
+  channel: Stanford University
+  duration: Official Slides PDF
+  kind: pdf
+- title: '3Blue1Brown — Attention in Transformers, Visually Explained'
+  url: https://www.youtube.com/watch?v=eMlx5fFNoYc
+  video_id: eMlx5fFNoYc
+  channel: 3Blue1Brown
+  duration: 26m
+  kind: youtube
+- title: 'Andrej Karpathy — Let’s Build GPT: from Scratch, in Code, Spelled Out'
+  url: https://www.youtube.com/watch?v=kCc8FmEb1nY
+  video_id: kCc8FmEb1nY
+  channel: Andrej Karpathy
+  duration: 1h 56m
+  kind: youtube

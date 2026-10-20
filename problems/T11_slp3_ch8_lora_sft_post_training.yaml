@@ -1,0 +1,71 @@
+id: T11
+slug: slp3-ch8-lora-sft-post-training
+title: 'Stanford SLP3 Ch. 8: Instruction Tuning (SFT), Loss Masking & LoRA Rank Scaling'
+kind: theory
+track: theory
+day: 3
+pattern:
+- sft
+- lora
+- post_training
+- theory
+difficulty: medium
+post_training_relevance: 'Grounded directly in Stanford SLP3 Chapter 8 (Post-Training) & eCornell Post-Training Module 1: covers why base pretrained LMs fail at instructions, how SFT masks prompt tokens, and how LoRA adapts weights with <1% trainable parameters.'
+statement: |
+  Based on **Stanford SLP3 Chapter 8 (`8.pdf`)** and **eCornell Post-Training**:
+
+  1. **Base Pretrained LM vs. Instruction-Tuned (SFT) LM**: Why does a base causal LM trained on next-token prediction often respond to `"Explain photosynthesis to a 10-year-old"` by generating more questions instead of answering?
+  2. **SFT Cross-Entropy Loss Masking**: Write the SFT loss objective $\mathcal{L}_{\text{SFT}}(\theta) = -\sum_{t=1}^{|y|} \log P_\theta(y_t \mid x, y_{<t})$ and explain how `labels = -100` (`ignore_index`) masks out user prompt tokens $x$ while keeping them in the causal attention context.
+  3. **LoRA Formulation & Zero Initialization**: Write the LoRA forward pass $h = x W_0 + \frac{\alpha}{r} x A B$ for $W_0 \in \mathbb{R}^{d \times k}$, $A \in \mathbb{R}^{d \times r}$, $B \in \mathbb{R}^{r \times k}$. Why is $A \sim \mathcal{N}(0, \sigma^2)$ and $B = 0$ at initialization, why do we scale by $\alpha / r$, and how does LoRA eliminate inference latency overhead?
+hints:
+- Base LMs model the document distribution of the web (where lists of exam/quiz questions are common), whereas SFT shifts the conditional distribution to P(helpful assistant response y | instruction x).
+- Setting `B = 0` ensures Delta W = (alpha/r) A B = 0 at step 0 so fine-tuning begins from the exact pretrained model without disturbing representations.
+- At inference time, merge `W_merged = W_0 + (alpha/r) A B` in-place so zero extra matrix multiplications are needed!
+rubric_points:
+- Distinguishes web-continuation distribution P(x) from conditional assistant distribution P(y | x) in SFT.
+- Explains prompt loss masking (ignore_index = -100 on prompt x, computing loss only on assistant response y + EOS token).
+- Writes LoRA equation h = x W_0 + (alpha/r) x A B with parameter reduction (d*r + r*k) vs (d*k).
+- Explains A ~ N(0, sigma^2), B = 0 initialization (Delta W = 0 at step 0), alpha/r hyperparameter transfer across ranks, and weight merging for zero-latency inference.
+follow_ups:
+- Which Transformer weight matrices should LoRA be applied to first (`W_Q, W_K, W_V, W_O` vs. MLP `W_gate, W_up, W_down`), and what does empirical research show about applying LoRA to all linear layers?
+- How does QLoRA (Dettmers et al., 2023) combine 4-bit NormalFloat (`NF4`), double quantization, and paged optimizers with LoRA?
+reference_solution: |
+  ### Model Answer (Stanford SLP3 Ch. 8)
+
+  1. **Base LM vs. Instruction-Tuned (SFT) LM**:
+     - A base causal LM is trained purely to maximize $\sum_t \log P_\theta(w_t \mid w_{<t})$ over web text. On the web, a question is frequently followed by more questions (e.g., a homework sheet or FAQ list).
+     - **Supervised Fine-Tuning (SFT)** trains on curated `(instruction x, response y)` pairs so the model learns the conversational turn structure (`<|user|>...<|assistant|>...<|eot_id|>`).
+
+  2. **SFT Cross-Entropy Loss Masking**:
+     $$\mathcal{L}_{\text{SFT}}(\theta) = -\sum_{t=1}^{|y|} \log P_\theta(y_t \mid x, y_{<t})$$
+     - During the forward pass, both prompt tokens $x$ and response tokens $y$ are concatenated and attend causally.
+     - In the loss target tensor `labels`, prompt token positions are set to `-100` (`ignore_index` in PyTorch `F.cross_entropy`) so gradients only backpropagate through assistant response tokens $y$ (plus the `<EOS>` token so the model learns when to stop).
+
+  3. **LoRA (Low-Rank Adaptation — Hu et al., 2022)**:
+     $$h = x W_0 + \frac{\alpha}{r} x A B, \quad W_0 \in \mathbb{R}^{d \times k},\; A \in \mathbb{R}^{d \times r},\; B \in \mathbb{R}^{r \times k},\; r \ll \min(d, k)$$
+     - **Initialization**: $A \sim \mathcal{N}(0, \sigma^2)$ and $B = 0$ so that at step $t=0$, $\Delta W = A B = 0$ and the network behaves identically to the pretrained base model (whilst $A \neq 0$ allows non-zero gradients $\frac{\partial \mathcal{L}}{\partial B} = A^\top x^\top \frac{\partial \mathcal{L}}{\partial h}$ on step 1).
+     - **Scaling by $\alpha / r$**: Keeps the magnitude of $\Delta W x$ stable when changing rank $r$, avoiding the need to retune the learning rate when varying $r$.
+     - **Zero Inference Latency**: After training, compute $W_{\text{merged}} = W_0 + \frac{\alpha}{r} A B$ once and deploy a single matrix of shape $(d, k)$.
+resources:
+- title: 'Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)'
+  url: /materials/slp3_ch8_post_training.pdf
+  channel: Jurafsky & Martin (Stanford SLP3)
+  duration: PDF Ch. 8
+  kind: pdf
+- title: 'Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)'
+  url: https://web.stanford.edu/~jurafsky/slp3/8.pdf
+  channel: Stanford University
+  duration: Official PDF
+  kind: pdf
+- title: 'LoRA: Low-Rank Adaptation of Large Language Models Explained'
+  url: https://www.youtube.com/watch?v=DhRoTONcyZE
+  video_id: DhRoTONcyZE
+  channel: Umar Jamil
+  duration: 28m
+  kind: youtube
+- title: 'Andrej Karpathy — State of GPT (Pretraining -> SFT -> RLHF Pipeline)'
+  url: https://www.youtube.com/watch?v=bZQun8Y4L2A
+  video_id: bZQun8Y4L2A
+  channel: Andrej Karpathy
+  duration: 42m
+  kind: youtube

@@ -8,6 +8,62 @@ from typing import Any
 
 CURATED_DOCS: list[dict[str, str]] = [
     {
+        "keywords": "slp3 post-training post_training sft lora rlhf ppo dpo bradley terry reward alignment ecornell",
+        "title": "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF (PPO) & DPO (Local PDF)",
+        "url": "/materials/slp3_ch8_post_training.pdf",
+        "channel": "Jurafsky & Martin (Stanford SLP3)",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "slp3 post-training post_training sft lora rlhf ppo dpo bradley terry reward alignment ecornell",
+        "title": "Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)",
+        "url": "https://web.stanford.edu/~jurafsky/slp3/8.pdf",
+        "channel": "Stanford University",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "transformer attention self-attention multi-head kv cache residual pre-ln rope flashattention",
+        "title": "Stanford SLP3 Transformer & Self-Attention Lecture Slides PDF (Local PDF)",
+        "url": "/materials/slp3_transformer_slides_aug26.pdf",
+        "channel": "Jurafsky & Martin (Stanford SLP3 Slides)",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "transformer attention self-attention multi-head kv cache residual pre-ln rope flashattention",
+        "title": "Stanford SLP3 Transformer Slides Official URL (transformer_aug26.pdf)",
+        "url": "https://web.stanford.edu/~jurafsky/slp3/slides/transformer_aug26.pdf",
+        "channel": "Stanford University",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "bert masked lm mlm bidirectional cloze cls ner bio roberta deberta",
+        "title": "Stanford SLP3 Ch. 9 PDF — Masked Language Models (BERT) (Local PDF)",
+        "url": "/materials/slp3_ch9_masked_lm.pdf",
+        "channel": "Jurafsky & Martin (Stanford SLP3)",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "bert masked lm mlm bidirectional cloze cls ner bio roberta deberta",
+        "title": "Stanford SLP3 Ch. 9 Official URL (web.stanford.edu/~jurafsky/slp3/9.pdf)",
+        "url": "https://web.stanford.edu/~jurafsky/slp3/9.pdf",
+        "channel": "Stanford University",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "cme295 cme 295 cheatsheet transformers llm moe rope sft lora rlhf ppo grpo dr.grpo dapo opd flashattention pagedattention speculative decoding react rag laaj diffusion dllm",
+        "title": "Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)",
+        "url": "/materials/stanford_cme295_cheatsheet_transformers_llms.pdf",
+        "channel": "Afshine Amidi & Shervine Amidi (Stanford CME 295)",
+        "kind": "pdf",
+    },
+    {
+        "keywords": "cme295 cme 295 cheatsheet transformers llm moe rope sft lora rlhf ppo grpo dr.grpo dapo opd flashattention pagedattention speculative decoding react rag laaj diffusion dllm",
+        "title": "Stanford CME 295 Cheatsheet Official GitHub PDF (afshinea/stanford-cme-295-transformers-large-language-models)",
+        "url": "https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf",
+        "channel": "Stanford CME 295 GitHub",
+        "kind": "pdf",
+    },
+    {
         "keywords": "dict hashmap hash map dictionary counter defaultdict set",
         "title": "Python Official Docs — Dictionaries (dict) & Mapping Types",
         "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries",
@@ -43,6 +99,7 @@ CURATED_DOCS: list[dict[str, str]] = [
         "kind": "docs",
     },
 ]
+
 
 
 def _fetch_youtube_sync(query: str, max_results: int = 4) -> list[dict[str, Any]]:

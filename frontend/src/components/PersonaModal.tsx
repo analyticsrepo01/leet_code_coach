@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import {
   deletePersonaApi,
+  fetchProblem,
   savePersonaApi,
   UserPersonaItem,
 } from '../api';
@@ -33,6 +34,7 @@ export const PersonaModal: React.FC = () => {
     removePersona,
     setMode,
     setTheme,
+    setCurrentProblem,
   } = useAppStore();
 
   const activePersona =
@@ -112,9 +114,24 @@ export const PersonaModal: React.FC = () => {
         setTheme(saved.preferred_theme);
       }
 
-      if (coachSocket.isConnected && currentProblem) {
+      let targetProblemId = currentProblem?.id;
+      if (
+        saved.id === 'persona-llm-ml' &&
+        (!currentProblem ||
+          !['M17', 'M18', 'T11', 'T12', 'T13', 'T14', 'T15'].includes(
+            currentProblem.id
+          ))
+      ) {
+        try {
+          const slpProblem = await fetchProblem('T11');
+          setCurrentProblem(slpProblem);
+          targetProblemId = slpProblem.id;
+        } catch {}
+      }
+
+      if (coachSocket.isConnected && targetProblemId) {
         coachSocket.switchContext(
-          currentProblem.id,
+          targetProblemId,
           (saved.preferred_mode as CoachMode) || 'tutor',
           saved.id
         );

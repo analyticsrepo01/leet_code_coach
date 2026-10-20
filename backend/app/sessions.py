@@ -142,6 +142,350 @@ BUILTIN_PERSONAS: list[UserPersona] = [
         preferred_theme="dark",
         is_builtin=True,
     ),
+    UserPersona(
+        id="persona-llm-ml",
+        name="LLM & ML Learning (Stanford SLP3, CME 295 & eCornell Post-Training)",
+        avatar_emoji="🧠",
+        role="LLM Post-Training & NLP Engineer (Stanford SLP3 + CME 295 + eCornell)",
+        experience_level="advanced",
+        coding_background=(
+            "Studying Stanford Speech & Language Processing (SLP3) Chapter 8 (Post-Training: Instruction Tuning / SFT, "
+            "LoRA, Bradley-Terry Reward Models, RLHF/PPO, Direct Preference Optimization / DPO), "
+            "Stanford SLP3 Transformer & Self-Attention Lecture Slides (transformer_aug26.pdf), "
+            "Stanford SLP3 Chapter 9 (Masked Language Models / BERT 80-10-10 rule, [CLS] & BIO fine-tuning), "
+            "Stanford CME 295 Transformers & Large Language Models VIP Cheatsheet (MoE, RoPE, Context Rot, Train/Test-Time Scaling, "
+            "On-Policy Distillation OPD, GRPO/Dr.GRPO/DAPO, FlashAttention, PagedAttention, 4D Parallelism, Speculative Decoding, "
+            "ReAct Agents, RAG, LLM-as-a-Judge biases, Diffusion LLMs), and the eCornell LLM Post-Training certification."
+        ),
+        coaching_style=(
+            "Professor & Post-Training Architect grounded in Stanford SLP3 (Jurafsky & Martin), Stanford CME 295 (Amidi & Amidi), "
+            "and eCornell Post-Training. Walk through exact mathematical equations (LoRA h = xW_0 + (alpha/r)xAB, Bradley-Terry, "
+            "PPO 4-model setup, DPO implicit reward r_hat = beta log(pi/pi_ref), GRPO group advantages, MoE gating, "
+            "Scaled Dot-Product Attention 1/sqrt(d_k), BERT 80/10/10 masking), connect every concept to clean NumPy/PyTorch code, "
+            "cite the Stanford SLP3 & CME 295 PDFs, and recommend YouTube lectures."
+        ),
+        preferred_mode="tutor",
+        preferred_voice="Aoede",
+        preferred_track="ml",
+        preferred_difficulty="all",
+        preferred_theme="dark",
+        is_builtin=True,
+    ),
+]
+
+
+BUILTIN_NOTES: list[RevisionNote] = [
+    RevisionNote(
+        id="note-slp3-ch8",
+        problem_id="T11",
+        problem_title="Stanford SLP3 Ch. 8: Instruction Tuning (SFT), Loss Masking & LoRA Rank Scaling",
+        title="📘 Stanford SLP3 Ch. 8 — Post-Training: SFT, LoRA, Bradley-Terry, RLHF (PPO) & DPO",
+        category="Stanford SLP3 & Post-Training",
+        key_takeaways=[
+            "Supervised Fine-Tuning (SFT) shifts a base web-continuation LM to P(response y | instruction x) by masking prompt tokens with labels = -100 (ignore_index).",
+            "LoRA freezes W_0 in R^(d x k) and learns h = x W_0 + (alpha / r) x A B with A ~ N(0, sigma^2) and B = 0 so Delta W = 0 at step 0; merges into W_0 for zero inference latency.",
+            "Bradley-Terry pairwise reward model: P(y_w > y_l | x) = sigma(r_phi(x, y_w) - r_phi(x, y_l)).",
+            "Online RLHF (PPO) holds 4 models in VRAM (Actor pi_theta, Critic V_psi, frozen Reference pi_ref, frozen Reward r_phi) with KL penalty -beta D_KL(pi_theta || pi_ref).",
+            "DPO solves the KL-regularized RL objective in closed form: r(x,y) = beta log(pi(y|x)/pi_ref(y|x)) + beta log Z(x), where Z(x) cancels in Bradley-Terry!",
+        ],
+        code_or_formula=(
+            "# 1. LoRA Forward Pass (SLP3 Ch. 8):\n"
+            "# h = x @ W0 + (alpha / r) * ((x @ A) @ B)\n\n"
+            "# 2. Bradley-Terry Reward Loss:\n"
+            "# L_RM = -mean(log_sigmoid(r_chosen - r_rejected))\n\n"
+            "# 3. DPO Loss (Numerically Stable):\n"
+            "chosen_r = beta * (pi_chosen_logp - ref_chosen_logp)\n"
+            "rejected_r = beta * (pi_rejected_logp - ref_rejected_logp)\n"
+            "loss = np.mean(np.logaddexp(0.0, -(chosen_r - rejected_r)))"
+        ),
+        content=(
+            "Complete study guide for Stanford SLP3 Chapter 8 (Post-Training). Covers Instruction Tuning (SFT), "
+            "Parameter-Efficient Fine-Tuning with Low-Rank Adaptation (LoRA & QLoRA), Human Preference Alignment, "
+            "Bradley-Terry Reward Modeling, PPO with 4 models, and Direct Preference Optimization (DPO)."
+        ),
+        resources=[
+            {
+                "title": "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)",
+                "url": "/materials/slp3_ch8_post_training.pdf",
+                "video_id": "",
+                "channel": "Jurafsky & Martin (Stanford SLP3)",
+                "duration": "PDF Ch. 8",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Ch. 8 Official URL (web.stanford.edu/~jurafsky/slp3/8.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/8.pdf",
+                "video_id": "",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "Direct Preference Optimization (DPO): Complete Mathematical Derivation",
+                "url": "https://www.youtube.com/watch?v=hvGa5Mba4c8",
+                "video_id": "hvGa5Mba4c8",
+                "channel": "Umar Jamil",
+                "duration": "46m",
+                "kind": "youtube",
+            },
+            {
+                "title": "LoRA: Low-Rank Adaptation of Large Language Models Explained",
+                "url": "https://www.youtube.com/watch?v=DhRoTONcyZE",
+                "video_id": "DhRoTONcyZE",
+                "channel": "Umar Jamil",
+                "duration": "28m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Stanford CS224N — RLHF, Reward Modeling, PPO & DPO Lecture",
+                "url": "https://www.youtube.com/watch?v=D8GOeCFFby4",
+                "video_id": "D8GOeCFFby4",
+                "channel": "Stanford Online",
+                "duration": "1h 18m",
+                "kind": "youtube",
+            },
+        ],
+        source="tutorial",
+    ),
+    RevisionNote(
+        id="note-slp3-transformers",
+        problem_id="T13",
+        problem_title="Stanford SLP3 Transformer Slides: Scaled Dot-Product Attention, Pre-LN Residual Stream & KV Cache",
+        title="📊 Stanford SLP3 Slides — Transformers, Scaled Dot-Product Attention, Pre-LN & KV Cache",
+        category="Stanford SLP3 & Post-Training",
+        key_takeaways=[
+            "Scaled Dot-Product Attention: softmax(Q K^T / sqrt(d_k) + M) V. Dividing by sqrt(d_k) keeps Var(q·k) = 1 so softmax does not saturate to one-hot vectors with vanishing gradients.",
+            "Multi-Head Attention runs h parallel projections (d_k = d_model / h) so different heads attend to syntactic, coreference, and positional patterns simultaneously.",
+            "Pre-LN Residual Stream: x' = x + MHA(LN(x)); y = x' + MLP(LN(x')) creates an unobstructed identity gradient highway d x_L / d x_0 = I + ...",
+            "KV Cache stores past K, V tensors of shape 2 * B * L * g * N * d_k * bytes so decoding a new token is O(N * d) instead of O(N^2 * d).",
+        ],
+        code_or_formula=(
+            "# Causal Scaled Dot-Product Self-Attention (NumPy):\n"
+            "scores = (Q @ K.T) / np.sqrt(d_k)\n"
+            "mask = np.triu(np.ones((N, N), dtype=bool), k=1)\n"
+            "scores = np.where(mask, -np.inf, scores)\n"
+            "weights = np.exp(scores - np.max(scores, axis=-1, keepdims=True))\n"
+            "weights /= np.sum(weights, axis=-1, keepdims=True)\n"
+            "out = weights @ V"
+        ),
+        content=(
+            "Complete study guide for Stanford SLP3 Transformer & Self-Attention Lecture Slides (transformer_aug26.pdf). "
+            "Covers Query/Key/Value projections, 1/sqrt(d_k) variance proof, causal masking, Multi-Head Attention tensor shapes, "
+            "Pre-LN residual stream vs Post-LN, RoPE positional embeddings, and KV cache scaling."
+        ),
+        resources=[
+            {
+                "title": "Stanford SLP3 Transformer & Self-Attention Slides PDF (Local PDF)",
+                "url": "/materials/slp3_transformer_slides_aug26.pdf",
+                "video_id": "",
+                "channel": "Jurafsky & Martin (Stanford SLP3 Slides)",
+                "duration": "Slides PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Transformer Slides Official URL (transformer_aug26.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/slides/transformer_aug26.pdf",
+                "video_id": "",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "3Blue1Brown — Attention in Transformers, Visually Explained",
+                "url": "https://www.youtube.com/watch?v=eMlx5fFNoYc",
+                "video_id": "eMlx5fFNoYc",
+                "channel": "3Blue1Brown",
+                "duration": "26m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Andrej Karpathy — Let's Build GPT: from Scratch, in Code, Spelled Out",
+                "url": "https://www.youtube.com/watch?v=kCc8FmEb1nY",
+                "video_id": "kCc8FmEb1nY",
+                "channel": "Andrej Karpathy",
+                "duration": "1h 56m",
+                "kind": "youtube",
+            },
+        ],
+        source="tutorial",
+    ),
+    RevisionNote(
+        id="note-slp3-ch9",
+        problem_id="T14",
+        problem_title="Stanford SLP3 Ch. 9: Bidirectional Encoder (BERT), 80/10/10 Masking, [CLS] & BIO Span Tagging",
+        title="📗 Stanford SLP3 Ch. 9 — Masked Language Models (BERT), 80/10/10 Rule & Fine-Tuning",
+        category="Stanford SLP3 & Post-Training",
+        key_takeaways=[
+            "Bidirectional encoders attend to both left and right context at every layer; standard causal LM loss would leak target tokens across layers.",
+            "BERT selects 15% of input tokens for MLM loss and applies 80% [MASK], 10% random token, and 10% unchanged to eliminate pretrain-finetune mismatch.",
+            "Sequence & pair classification uses the final [CLS] vector: softmax(h_[CLS] W_c) on '[CLS] Sent A [SEP] Sent B [SEP]'.",
+            "Token-level NER / span tagging passes each token representation h_i to softmax(h_i W_tag) over BIO tags {B-PER, I-PER, O}, masking WordPiece '##' continuation subwords with -100.",
+        ],
+        code_or_formula=(
+            "# BERT 80/10/10 Masked LM Corruption (SLP3 Ch. 9):\n"
+            "labels = np.where(selected_mask, token_ids, -100)  # ignore_index = -100\n"
+            "corrupted = token_ids.copy()\n"
+            "corrupted[selected_mask & (u < 0.8)] = mask_token_id\n"
+            "corrupted[selected_mask & (u >= 0.8) & (u < 0.9)] = random_token_ids[selected_mask & (u >= 0.8) & (u < 0.9)]"
+        ),
+        content=(
+            "Complete study guide for Stanford SLP3 Chapter 9 (Masked Language Models). "
+            "Covers bidirectional Transformer encoders, the Cloze task, BERT's 15% masking budget and 80/10/10 corruption rule, "
+            "Next Sentence Prediction (NSP) vs RoBERTa dynamic masking, [CLS] classification, BIO Named Entity Recognition, and Cross-Encoder reranking."
+        ),
+        resources=[
+            {
+                "title": "Stanford SLP3 Ch. 9 PDF — Masked Language Models (BERT) (Local PDF)",
+                "url": "/materials/slp3_ch9_masked_lm.pdf",
+                "video_id": "",
+                "channel": "Jurafsky & Martin (Stanford SLP3)",
+                "duration": "PDF Ch. 9",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford SLP3 Ch. 9 Official URL (web.stanford.edu/~jurafsky/slp3/9.pdf)",
+                "url": "https://web.stanford.edu/~jurafsky/slp3/9.pdf",
+                "video_id": "",
+                "channel": "Stanford University",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "BERT Neural Network — Explained! (80/10/10 Masked LM & Fine-Tuning)",
+                "url": "https://www.youtube.com/watch?v=xI0HHN5XKDo",
+                "video_id": "xI0HHN5XKDo",
+                "channel": "CodeEmporium",
+                "duration": "13m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Stanford CS224N: Pretraining, Masked Language Models (BERT) & RoBERTa",
+                "url": "https://www.youtube.com/watch?v=knTc-UrMxI8",
+                "video_id": "knTc-UrMxI8",
+                "channel": "Stanford Online",
+                "duration": "1h 20m",
+                "kind": "youtube",
+            },
+        ],
+        source="tutorial",
+    ),
+    RevisionNote(
+        id="note-ecornell-post-training",
+        problem_id="T15",
+        problem_title="eCornell Post-Training: Full Alignment Pipeline, Reward Hacking, Length Bias & SimPO/ORPO/GRPO",
+        title="🎓 eCornell LLM Post-Training Course — SFT, DPO/PPO/GRPO Alignment & Evaluation Hub",
+        category="eCornell Post-Training",
+        key_takeaways=[
+            "Stage 1 (SFT & LoRA/QLoRA): Curate high-quality instruction pairs, mask prompt tokens (-100), and adapt attention/MLP projections via LoRA.",
+            "Stage 2 (Preference Alignment): Compare PPO (online 4-model actor-critic) vs DPO (offline closed-form implicit reward) vs SimPO (length-normalized reference-free margin).",
+            "Stage 3 (Reasoning & RLVR): Group Relative Policy Optimization (GRPO) samples G rollouts per prompt and normalizes rewards within the group, removing the Critic network.",
+            "Stage 4 (Evaluation & Guardrails): Mitigate reward hacking, length/verbosity bias, and position bias in LLM-as-a-Judge benchmarks; upload your eCornell PDFs in the Course PDFs tab!",
+        ],
+        code_or_formula=(
+            "# GRPO Group-Normalized Advantage (No Critic Network Needed):\n"
+            "mean_r = np.mean(group_rewards, axis=-1, keepdims=True)\n"
+            "std_r = np.std(group_rewards, axis=-1, keepdims=True)\n"
+            "advantages = (group_rewards - mean_r) / (std_r + 1e-8)\n\n"
+            "# SimPO Reference-Free Length-Normalized Margin Loss:\n"
+            "margin = (beta / len_w) * logp_w - (beta / len_l) * logp_l - gamma\n"
+            "loss = np.mean(np.logaddexp(0.0, -margin))"
+        ),
+        content=(
+            "Dedicated module for your eCornell LLM Post-Training Course. You can upload any new eCornell course PDFs "
+            "or lecture notes using the 'Course PDFs / eCornell' button above to automatically extract text, formulas, "
+            "practice questions, and curated YouTube videos into your Reference Notes!"
+        ),
+        resources=[
+            {
+                "title": "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)",
+                "url": "/materials/slp3_ch8_post_training.pdf",
+                "video_id": "",
+                "channel": "Jurafsky & Martin (Stanford SLP3)",
+                "duration": "PDF Ch. 8",
+                "kind": "pdf",
+            },
+            {
+                "title": "DeepSeek-R1 & GRPO: Group Relative Policy Optimization Explained",
+                "url": "https://www.youtube.com/watch?v=bAWV_yrqx4w",
+                "video_id": "bAWV_yrqx4w",
+                "channel": "Umar Jamil",
+                "duration": "38m",
+                "kind": "youtube",
+            },
+            {
+                "title": "Andrej Karpathy — State of GPT (Pretraining, SFT, RLHF & Post-Training)",
+                "url": "https://www.youtube.com/watch?v=bZQun8Y4L2A",
+                "video_id": "bZQun8Y4L2A",
+                "channel": "Andrej Karpathy",
+                "duration": "42m",
+                "kind": "youtube",
+            },
+        ],
+        source="tutorial",
+    ),
+    RevisionNote(
+        id="note-cme295-cheatsheet",
+        problem_id="T16",
+        problem_title="Stanford CME 295: Reasoning Scaling (Train vs. Test-Time 'Wait'), On-Policy Distillation (OPD) & GRPO / Dr. GRPO / DAPO",
+        title="⚡ Stanford CME 295 VIP Cheatsheet — Transformers, MoE, RL (PPO/GRPO/Dr.GRPO/DAPO), Systems, ReAct/RAG, LaaJ & Diffusion LLMs",
+        category="Stanford SLP3 & Post-Training",
+        key_takeaways=[
+            "Foundations & Transformers (Secs 1–3): BPE/Unigram subword tokenizers, Cosine similarity, MHA/GQA/MQA, RoPE, BERT [CLS] vs GPT [BOS], Mixture-of-Experts y_hat = sum G(x)_i E_i(x), Context Rot, and Temperature T.",
+            "Training & Reasoning (Sec 4): CE Pretraining & Scaling Laws, SFT & LoRA (W_0 + BA), Best-of-N Rejection Sampling, Train-time RL scaling vs Test-time budget forcing ('Wait'), and On-Policy Distillation (OPD) with dense token-level teacher supervision.",
+            "RL with LLMs (Sec 5): REINFORCE baseline R - b(s), PPO clipped surrogate, and GRPO group advantage A_hat_i = (R_i - mean)/std with Verifiable Rewards, plus Dr. GRPO (length bias fix) and DAPO (modified clipping + dynamic sampling).",
+            "LLM Systems, Agents, Eval & Diffusion LLMs (Secs 6–9): FlashAttention (SRAM vs HBM), PagedAttention (fixed KV blocks), 4D Parallelism (Data/Tensor/Pipeline/Expert), Prefill vs Decode & Speculative Decoding, ReAct + RAG + Reranker, LLM-as-a-Judge biases (Position, Verbosity, Self-enhancement), and Discrete Masked Diffusion LLMs (dLLMs).",
+        ],
+        code_or_formula=(
+            "# 1. Sparse Mixture-of-Experts (MoE) Top-K Routing (CME 295 Sec 3.1):\n"
+            "# y_hat = sum_{i in TopK} softmax(r_topK)_i * E_i(x)\n\n"
+            "# 2. GRPO Advantage & Objective (CME 295 Sec 5.3):\n"
+            "A_hat = (R - R.mean()) / (R.std() + 1e-8)\n"
+            "# L_GRPO = (1/G) sum_i E_t[ min(r_{i,t} A_hat_i, clip(r_{i,t}, 1-eps, 1+eps) A_hat_i) - beta D_KL(pi_theta || pi_ref) ]"
+        ),
+        content=(
+            "Complete 6-page VIP Cheatsheet from Stanford CME 295 (Transformers & Large Language Models by Afshine Amidi & Shervine Amidi). "
+            "Covers 1. Foundations (Tokens, Embeddings), 2. Transformers (MHA/GQA/MQA, RoPE, BERT/GPT/T5), 3. LLMs (MoE, Context Rot, Temperature), "
+            "4. LLM Training (Pretraining, SFT, LoRA, RM/BoN, RLHF/DPO, Train vs Test-Time Reasoning Scaling, On-Policy Distillation OPD), "
+            "5. RL with LLMs (REINFORCE, PPO, GRPO, Dr. GRPO, DAPO), 6. LLM Systems (FlashAttention, PagedAttention, Data/Tensor/Pipeline/Expert Parallelism, "
+            "KV/Prompt Caching, Prefill vs Decode, Speculative Decoding), 7. AI Agents (ReAct, Harness, RAG & Rerankers), "
+            "8. Evaluation (LLM-as-a-Judge Position/Verbosity/Self-enhancement biases, Component vs Trajectory agent eval), and 9. Diffusion LLMs (dLLMs)."
+        ),
+        resources=[
+            {
+                "title": "Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)",
+                "url": "/materials/stanford_cme295_cheatsheet_transformers_llms.pdf",
+                "video_id": "",
+                "channel": "Afshine Amidi & Shervine Amidi (Stanford CME 295)",
+                "duration": "6-Page Cheatsheet PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "Stanford CME 295 Cheatsheet Official GitHub PDF",
+                "url": "https://github.com/afshinea/stanford-cme-295-transformers-large-language-models/blob/main/en/cheatsheet-transformers-large-language-models.pdf",
+                "video_id": "",
+                "channel": "Stanford CME 295 GitHub",
+                "duration": "Official PDF",
+                "kind": "pdf",
+            },
+            {
+                "title": "DeepSeek-R1, GRPO, Verifiable Rewards & Reasoning Scaling Explained",
+                "url": "https://www.youtube.com/watch?v=DCqqCL29Bc8",
+                "video_id": "DCqqCL29Bc8",
+                "channel": "Yannic Kilcher",
+                "duration": "1h 05m",
+                "kind": "youtube",
+            },
+            {
+                "title": "FlashAttention, KV Cache, PagedAttention & Speculative Decoding Explained",
+                "url": "https://www.youtube.com/watch?v=IoGaGfU1VgQ",
+                "video_id": "IoGaGfU1VgQ",
+                "channel": "Umar Jamil",
+                "duration": "49m",
+                "kind": "youtube",
+            },
+        ],
+        source="tutorial",
+    ),
 ]
 
 
@@ -167,7 +511,7 @@ class SessionStore:
         self._solved_ids: set[str] = set()
         self._pattern_stats: dict[str, dict[str, int]] = {}
         self._scorecards: list[Scorecard] = []
-        self._notes: list[RevisionNote] = []
+        self._notes: list[RevisionNote] = [n.model_copy() for n in BUILTIN_NOTES]
         self._personas: dict[str, UserPersona] = {p.id: p.model_copy() for p in BUILTIN_PERSONAS}
         self._personas_file = Path("/tmp/livecoach_personas.json")
         self._fs_client: Any = None

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 import json
 from typing import Any, Optional
-from fastapi import Depends, FastAPI, HTTPException, WebSocket
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -526,6 +526,106 @@ Return a JSON object with:
     return saved.model_dump()
 
 
+@app.post("/api/notes/upload-pdf", dependencies=[Depends(verify_http_token)])
+async def upload_course_pdf_note(
+    file: UploadFile = File(...),
+    course_tag: str = Form("eCornell Post-Training"),
+    problem_id: str = Form("T15"),
+) -> dict[str, Any]:
+    import io
+    from pypdf import PdfReader
+
+    raw_bytes = await file.read()
+    if not raw_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    safe_name = re.sub(r"[^a-zA-Z0-9._-]+", "_", file.filename or "course_material.pdf")
+    if not safe_name.lower().endswith(".pdf"):
+        safe_name += ".pdf"
+
+    settings.materials_dir.mkdir(parents=True, exist_ok=True)
+    saved_path = settings.materials_dir / safe_name
+    saved_path.write_bytes(raw_bytes)
+    pdf_url = f"/materials/{safe_name}"
+
+    extracted_pages: list[str] = []
+    num_pages = 0
+    try:
+        reader = PdfReader(io.BytesIO(raw_bytes))
+        num_pages = len(reader.pages)
+        for idx, page in enumerate(reader.pages[:25]):
+            txt = (page.extract_text() or "").strip()
+            if txt:
+                extracted_pages.append(f"[Page {idx + 1}] {txt[:1200]}")
+    except Exception as e:
+        extracted_pages.append(f"(PDF text extraction warning: {e})")
+
+    extracted_snippet = "\n\n".join(extracted_pages)[:14000]
+    clean_title = (file.filename or "Course Material").rsplit(".", 1)[0].replace("_", " ")
+
+    prompt = f"""You are LiveCoach (powered by Gemini 4 Argon) creating a comprehensive Reference Note & Practice Guide from an uploaded course PDF.
+Course / Module Tag: {course_tag}
+Uploaded PDF Filename: {file.filename} ({num_pages} pages)
+
+Extracted PDF Text Snippet:
+{extracted_snippet}
+
+Return a JSON object with:
+- "title": Clear, descriptive study note title (e.g. "🎓 {course_tag}: {clean_title}")
+- "category": "{course_tag}"
+- "key_takeaways": Array of 5 crisp, high-yield bullet points summarizing the core concepts, mathematical formulations, and practical takeaways from this PDF
+- "code_or_formula": Key mathematical equations, PyTorch/NumPy snippets, or algorithm steps from the PDF
+- "content": Structured summary including (1) Core Concepts & Derivations, (2) 2 Self-Test Interview Questions with Model Answers based on this PDF
+"""
+    yt_resources = await search_learning_resources(
+        f"{clean_title} {course_tag} LLM tutorial", max_results=3
+    )
+    pdf_resource = {
+        "title": f"{course_tag} PDF — {file.filename} ({num_pages} pages)",
+        "url": pdf_url,
+        "video_id": "",
+        "channel": course_tag,
+        "duration": f"{num_pages}p PDF",
+        "kind": "pdf",
+    }
+    resources = [pdf_resource] + yt_resources
+
+    try:
+        raw_json = await generate_with_argon(
+            prompt, response_mime_type="application/json", temperature=0.2
+        )
+        parsed = json.loads(raw_json or "{}")
+        note = RevisionNote(
+            problem_id=problem_id or "T15",
+            problem_title=f"{course_tag} Course Module",
+            title=str(parsed.get("title") or f"🎓 {course_tag}: {clean_title}"),
+            category=str(parsed.get("category") or course_tag),
+            key_takeaways=[str(x) for x in (parsed.get("key_takeaways") or [])],
+            code_or_formula=str(parsed.get("code_or_formula") or ""),
+            content=str(parsed.get("content") or extracted_snippet[:2500]),
+            resources=resources,
+            source="tutorial",
+        )
+    except Exception:
+        note = RevisionNote(
+            problem_id=problem_id or "T15",
+            problem_title=f"{course_tag} Course Module",
+            title=f"🎓 {course_tag}: {clean_title}",
+            category=course_tag,
+            key_takeaways=[
+                f"Uploaded course PDF ({file.filename}, {num_pages} pages) indexed into Reference Notes.",
+                "Click the attached PDF resource below to open the full document.",
+            ],
+            code_or_formula="",
+            content=extracted_snippet[:3000],
+            resources=resources,
+            source="tutorial",
+        )
+
+    saved = session_store.save_note(note)
+    return saved.model_dump()
+
+
 @app.get("/api/personas", dependencies=[Depends(verify_http_token)])
 async def list_personas_endpoint() -> list[dict[str, Any]]:
     return session_store.list_personas()
@@ -572,6 +672,14 @@ async def ws_coach_endpoint(websocket: WebSocket) -> None:
     await handle_coach_websocket(websocket)
 
 
+# Serve static course PDFs (/materials/*)
+settings.materials_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/materials",
+    StaticFiles(directory=str(settings.materials_dir)),
+    name="materials",
+)
+
 # Serve static frontend if built
 if settings.static_dir.exists():
     assets_dir = settings.static_dir / "assets"
@@ -594,3 +702,4 @@ if settings.static_dir.exists():
         if index_file.is_file():
             return FileResponse(str(index_file))
         raise HTTPException(status_code=404, detail="Not Found")
+
