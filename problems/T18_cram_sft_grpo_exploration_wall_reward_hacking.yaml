@@ -1,0 +1,176 @@
+id: T18
+slug: cram-sft-grpo-exploration-wall-reward-hacking
+title: "CRAM Project Deep-Dive: SFT + GRPO, The Exploration Wall & SAMB Evaluator Reward-Hacking"
+kind: theory
+track: theory
+day: 7
+difficulty: hard
+pattern:
+  - post_training
+  - grpo
+  - sft
+  - reward_hacking
+  - qlora
+post_training_relevance: "Direct interview prep for your CRAM (Context-Rational Agentic Memory) SFT + GRPO project: QLoRA (Gemma 4-E4B-it, NF4, r=8/α=16), the 4 memory directives ([KEEP], [COMPRESS], [EVICT], [REFOCUS]) + <shield>, the Exploration Wall across 12 runs, and fixing the SAMB bag-of-tags reward-hacking bug with per-block Macro-F1."
+statement: |
+  **CRAM ("Context-Rational Agentic Memory") — SFT & GRPO Interview Prep Deep-Dive**
+
+  📄 **Attached HTML Study Guides:**
+  - **[CRAM: SFT and GRPO, in plain English (2-Page Cheat Sheet)](/materials/interview-sft-grpo-explainer.html)**
+  - **[CRAM: SFT and GRPO, explained properly (Full 12-Section Guide)](/materials/interview-sft-grpo-explained.html)**
+
+  ---
+
+  ### Interview Prompt
+  In your technical interview, be ready to walk through your **CRAM SFT + GRPO** experiments clearly, honestly, and quantitatively across these **5 core areas**:
+
+  1. **The Problem & Model Setup (QLoRA on 1 H100):**
+     - What problem does **CRAM** solve for long-horizon agents, what are the **4 memory directives** (`[KEEP]`, `[COMPRESS]`, `[EVICT]`, `[REFOCUS]`) and **`<shield>`** tags across the 156 multi-step tasks?
+     - How did you configure **`google/gemma-4-E4B-it`** with **4-bit NF4 double quantization** and **LoRA ($r=8, \alpha=16$, 5.5M trainable params = 0.069%)** + 8-bit AdamW to fit in ~23 GB on one H100?
+
+  2. **The SFT Stage & Why It Didn't Break the Wall:**
+     - How were the **156 gold SFT examples** generated (`train_sft_v1.py`, 3 epochs, `lr=2e-4`, 114 steps, batch $1 \times 4$ grad accum), what happened to the cross-entropy loss (`2.06 → 2.04 → 2.06`), and what critical flaw existed in the 156 gold examples (all 156 only used `[KEEP]`, and format score stayed ~`-0.18`)?
+
+  3. **The GRPO Stage, Composite Reward & Why `KL = 0.0`:**
+     - Explain **GRPO** ($G=4$ rollouts per task, grad accum 4 = 16 rollouts/update, no critic network, advantage $A_i = R_i - \bar{R}$, no PPO $\epsilon$-clip, grad clip 1.0) vs. PPO and DPO.
+     - Break down the **5-part reward**: **Format** ($+0.1$ `<think>`, $+0.1$ `<answer>`, $-0.2$ if neither), **Task** ($0..+1$ keyword share), **Directive** ($+1/+3/+5$), **Shield** ($+1$ all kept, $-2$ per dropped shield), and **Thrift** ($0..-1$ over 150 words).
+     - How was the KL reference computed (`model.disable_adapter()`, $\beta=0.04$), why did the logs show **`KL = 0.0`** at every step, and what does that imply?
+
+  4. **The Central Finding — The Exploration Wall Across All 12 Runs:**
+     - Why did raising the directive bonus from **$+1 \to +3 \to +5$** fail to increase directive usage (`0.3% → 1.3% → 1.3%`)? Explain mathematically using the group advantage $A_i = R_i - \bar{R}$.
+     - Why did changing one word in the prompt (**`"may"` $\to$ `"must"`**, Run 6) immediately unlock directives from **step 2** (`7.0%` usage, best `roll20 = +0.277`), and what happened in the **Curriculum run** (Run 10: 100 steps `"must"` at `9.2%` $\to$ 100 steps `"may"` dropping back to `0.5%`)?
+
+  5. **The SAMB Reward-Hacking Story & What You Would Do Next:**
+     - Explain how the original **SAMB** evaluator ("bag of tags" substring check) could be gamed to score **1.0 on every metric** by printing all four tags, how you fixed it with **per-block parsing + Macro-F1**, and what the honest post-fix numbers revealed on Gemma 4 31B (`24.9%` accuracy = chance, `0.145` Macro-F1, `139/156 = 89%` emitting identical `KEEP, COMPRESS, EVICT, KEEP`).
+     - List the **4 concrete improvements** you would make in the next iteration.
+
+examples:
+  - input: "\"Why didn't raising the directive reward from +1 to +3 to +5 fix the exploration wall?\""
+    output: "\"GRPO compares the 4 answers it actually sampled in a group. If none of the 4 rollouts contains a directive, all 4 get 0 directive reward, so the group mean is 0 and every advantage is 0. Multiplying 0 by +5 is still 0. Only changing what the model tries ('must' prompt) seeded directives into the group from step 2.\""
+    explanation: "Zero within-group variance yields zero policy gradient signal regardless of reward scale."
+  - input: "\"Tell me about a time your evaluation metric misled you (Reward Hacking).\""
+    output: "\"My first SAMB evaluator checked if the gold tag appeared anywhere in the output ('bag of tags'). Printing all 4 tags scored 1.0 on every metric. After switching to per-block parsing and 4-class Macro-F1, Gemma 4 31B scored 24.9% accuracy (chance is 25%) and 0.145 Macro-F1 because 89% of outputs repeated KEEP, COMPRESS, EVICT, KEEP regardless of content.\""
+    explanation: "Directly addresses reward hacking and evaluator validation."
+
+constraints:
+  - "Cite exact numbers from the CRAM repo logs (156 tasks, 11 shielded, LoRA r=8/alpha=16 = 5.5M params / 0.069%, G=4, 12 runs, roll20 +0.277 on 'must', 0.145 Macro-F1)."
+  - "Be candid about what didn't work (SFT loss flat at ~2.05 with only [KEEP], KL measured 0.0, no G sweep, no forgetting benchmark) and how you diagnosed each issue."
+
+starter_code: |
+  # Write your structured interview speaking notes or practice answers below,
+  # or use the Coach Pane on the right ("🎯 Quiz Me on My SFT+GRPO")!
+
+  # 1. Problem & QLoRA Setup (Gemma 4-E4B-it, NF4, r=8, alpha=16):
+  #
+
+  # 2. Why SFT Didn't Take (156 examples, all [KEEP], loss ~2.05):
+  #
+
+  # 3. GRPO Update, 5-Part Reward & Why KL = 0.0:
+  #
+
+  # 4. The Exploration Wall (+1/+3/+5 vs "must" prompt & Curriculum):
+  #
+
+  # 5. The SAMB Evaluator Bug (Bag-of-Tags -> Per-Block Macro-F1 = 0.145):
+  #
+
+hints:
+  - "For the Exploration Wall: write out a 4-rollout group where 0 answers emit a directive. With bonus B in {1, 3, 5}, the directive reward vector is [0, 0, 0, 0], mean = 0, advantage = [0, 0, 0, 0]. No gradient flows toward directive tokens until at least 1 rollout in the group emits a directive."
+  - "For Why SFT Failed: highlight three root causes from §3.5: (1) all 156 Claude-generated examples only used [KEEP] (zero examples of COMPRESS, EVICT, REFOCUS), (2) loss stayed flat (2.06 -> 2.04 -> 2.06), and (3) format score remained -0.18 in GRPO-after-SFT, pointing to chat-template mismatch or under-training the 0.069% adapter."
+  - "For Reward Hacking: contrast 'bag-of-tags' (`tag in output`, easily hacked to 1.0 by listing all 4 tags) vs 'per-block Macro-F1' (parse block -> directive and average F1 equally across KEEP, COMPRESS, EVICT, REFOCUS, which exposed the 89% fixed-template habit at 0.145 Macro-F1)."
+
+optimal:
+  time: "N/A (Project Deep-Dive)"
+  space: "N/A (Project Deep-Dive)"
+
+rubric_points:
+  - "Problem & QLoRA Setup: Clearly explains Context-Rational Agentic Memory (CRAM), the 4 directives ([KEEP], [COMPRESS], [EVICT], [REFOCUS]) + <shield> on 156 tasks (11 shielded), and QLoRA on Gemma 4-E4B-it (4-bit NF4 + double quant, LoRA r=8, alpha=16, 5.5M params = 0.069%, ~23 GB on 1 H100)."
+  - "SFT Diagnosis: Explains why SFT failed to seed directive habits — 156 examples only contained [KEEP], cross-entropy loss stayed flat (2.06 -> 2.04 -> 2.06), format score stayed ~ -0.18, and task reward dropped from ~0.36 to ~0.21."
+  - "GRPO Mechanics & KL=0.0: Explains G=4 group baseline (advantage = score - group mean, summing to 0, no critic network, no PPO ratio clip, grad clip 1.0), the 5-part reward (Format + Task + Directive + Shield + Thrift), and why KL via disable_adapter() logged 0.0."
+  - "The Exploration Wall (12 Runs): Articulates why +1/+3/+5 reward bonuses all stayed at 0.3%-1.3% (zero within-group variance = zero advantage), why 'must' unlocked learning from step 2 (7.0% usage, roll20 +0.277), and why the curriculum habit vanished (9.2% -> 0.5%) when switching from 'must' to 'may'."
+  - "Reward-Hacking & Next Steps: Explains the SAMB bag-of-tags bug (printing all 4 tags scored 1.0), the per-block Macro-F1 fix (exposing 24.9% accuracy / 0.145 F1 and 89% fixed KEEP, COMPRESS, EVICT, KEEP pattern), and the 4 concrete next steps."
+
+follow_ups:
+  - "Why didn't raising the directive reward from +1 to +3 to +5 fix the exploration wall?"
+  - "How did you pick group size G = 4, and how would sweeping G = 8 or 16 affect the exploration wall?"
+  - "Why was KL divergence 0.0 at every step of every run, and how would you verify the adapter weights actually moved?"
+  - "How do you know the model didn't forget general capabilities during SFT or GRPO?"
+  - "What surprised you most across all 12 runs, and what 4 changes would you make next?"
+
+reference_solution: |
+  # ============================================================================
+  # CRAM: SFT & GRPO INTERVIEW PREP — GOLD "SAY IT LIKE THIS" ANSWERS
+  # ============================================================================
+
+  # 1. THE PROBLEM & QLORA SETUP
+  # "Agents forget the one detail they need because their memory is a fixed-size
+  # window. In CRAM (Context-Rational Agentic Memory), I tried to teach a small
+  # model (Gemma 4-E4B-it) to label context blocks with four directives —
+  # [KEEP], [COMPRESS], [EVICT], [REFOCUS] — and never drop critical facts wrapped
+  # in <shield>...</shield> across 156 multi-step tasks (11 shielded).
+  # I trained only ~5.5M parameters (LoRA r=8, alpha=16, 0.069% of weights) on top
+  # of 4-bit NF4 double-quantized weights with 8-bit AdamW, fitting each run in
+  # ~23 GB on a single H100."
+
+  # 2. WHY SFT DIDN'T TAKE
+  # "My SFT didn't take: cross-entropy loss stayed flat around 2.05 (2.06 -> 2.04 -> 2.06)
+  # over 3 epochs (114 steps, lr 2e-4), and the 156 Claude-generated gold answers
+  # only ever used [KEEP] — zero examples of COMPRESS, EVICT, or REFOCUS. Even
+  # <think>/<answer> format scores stayed at -0.18 in the subsequent GRPO run.
+  # The lesson is that demonstrations must be balanced across all target actions,
+  # and you must verify loss decreases and behavior shifts before starting RL."
+
+  # 3. GRPO MECHANICS, REWARD & WHY KL = 0.0
+  # "GRPO is RL without a critic. For each task, the model samples G = 4 answers,
+  # deterministic Python code scores them (Format + Task keywords + Directive +
+  # Shield + Thrift length penalty), and each answer's advantage is its score minus
+  # the group mean (summing to zero). We used gradient accumulation 4 (16 rollouts
+  # per update), gradient clipping 1.0, no PPO ratio clipping, and computed reference
+  # log-probs via model.disable_adapter() with KL beta = 0.04. Notably, logged KL
+  # was 0.0 at every step, indicating the 0.069% adapter barely moved and behavior
+  # changes came primarily from prompt conditioning."
+
+  # 4. THE EXPLORATION WALL (CENTRAL FINDING ACROSS 12 RUNS)
+  # "The biggest lesson was the exploration wall: RL can only reinforce a behavior
+  # that already happens sometimes. If none of the 4 rollouts in a group emits a
+  # directive, all 4 get 0 directive bonus, the group average is 0, and the
+  # advantage difference is 0. Raising the bonus from +1 to +3 to +5 multiplied zero
+  # (usage stayed at 0.3% -> 1.3% -> 1.3%). One word in the prompt — 'must' instead
+  # of 'may' (Run 6) — seeded directives from step 2 (7.0% usage, best roll20 +0.277).
+  # In the 200-step Curriculum run (100 'must' -> 100 'may'), usage dropped from
+  # 9.2% back to 0.5% as soon as forcing stopped."
+
+  # 5. REWARD HACKING (SAMB EVALUATOR BUG) & NEXT STEPS
+  # "My first SAMB evaluator checked whether the gold tag appeared anywhere in the
+  # output ('bag of tags'), which could be beaten to score 1.0 by printing all 4 tags.
+  # After fixing the grader to parse block -> directive and compute 4-class Macro-F1,
+  # Gemma 4 31B scored 24.9% accuracy (chance is 25%) and 0.145 Macro-F1 because
+  # 139 of 156 outputs (89%) repeated the fixed sequence KEEP, COMPRESS, EVICT, KEEP
+  # regardless of content.
+  # Next steps: (1) Balanced block-labelled gold SFT data across all 4 directives,
+  # (2) Verify SFT chat template & falling loss before RL, (3) Reward per-block
+  # Macro-F1 in GRPO with larger group size G (8-16) and mixed must/may prompts,
+  # and (4) Verify non-zero KL and track a held-out forgetting benchmark."
+
+resources:
+  - title: "CRAM: SFT and GRPO, in plain English (2-Page Interview Cheat Sheet HTML)"
+    url: "/materials/interview-sft-grpo-explainer.html"
+    channel: "CRAM Interview Prep"
+    duration: "2-Page HTML"
+    kind: "docs"
+  - title: "CRAM: SFT and GRPO, explained properly (Full 12-Section Interview Guide HTML)"
+    url: "/materials/interview-sft-grpo-explained.html"
+    channel: "CRAM Interview Prep"
+    duration: "Full HTML Guide"
+    kind: "docs"
+  - title: "Stanford CME 295 VIP Cheatsheet: Transformers & Large Language Models (Local PDF)"
+    url: "/materials/stanford_cme295_cheatsheet_transformers_llms.pdf"
+    channel: "Stanford CME 295"
+    duration: "PDF Cheatsheet"
+    kind: "pdf"
+  - title: "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF & DPO (Local PDF)"
+    url: "/materials/slp3_ch8_post_training.pdf"
+    channel: "Jurafsky & Martin (Stanford SLP3)"
+    duration: "PDF Ch. 8"
+    kind: "pdf"

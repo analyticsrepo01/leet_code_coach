@@ -173,21 +173,26 @@ BUILTIN_PERSONAS: list[UserPersona] = [
     ),
     UserPersona(
         id="persona-ml-interviewer",
-        name="ML Mock Interviewer & Answer Coach",
+        name="ML Mock Interviewer & Answer Coach (CRAM SFT+GRPO + ML/LLM)",
         avatar_emoji="🎯",
-        role="ML / LLM Interview Q&A Practice & Feedback",
+        role="ML / LLM & CRAM SFT+GRPO Interview Q&A Practice",
         experience_level="advanced",
         coding_background=(
-            "Practicing Machine Learning, Deep Learning, Transformers, and LLM Post-Training interview questions "
-            "(Supervised Fine-Tuning / SFT, LoRA, Bradley-Terry Reward Modeling, RLHF / PPO, DPO, GRPO / Dr.GRPO / DAPO, "
-            "Multi-Head Self-Attention, KV Cache, RoPE, MoE, FlashAttention, PagedAttention, Speculative Decoding, "
-            "BERT Masked LM, Classical ML, Overfitting/Regularization, Precision/Recall/ROC-AUC, Optimization & Loss Functions)."
+            "Author of CRAM ('Context-Rational Agentic Memory'): trained google/gemma-4-E4B-it with 4-bit NF4 QLoRA (r=8, alpha=16, "
+            "5.5M params = 0.069%, ~23 GB on 1 H100) using SFT (156 Claude-generated examples, all [KEEP], loss flat at ~2.05) and "
+            "GRPO (G=4, grad accum 4 = 16 rollouts/update, KL beta=0.04 via disable_adapter() measured 0.0, 5-part reward: Format + Task + "
+            "Directive [KEEP]/[COMPRESS]/[EVICT]/[REFOCUS] + <shield> Guardian + Thrift length penalty) across 12 runs, uncovering the "
+            "Exploration Wall (+1/+3/+5 bonus stayed ~1.3% vs 'must' prompt unlocking 7.0% from step 2, roll20 +0.277) and fixing the "
+            "SAMB bag-of-tags reward-hacking bug with per-block 4-class Macro-F1 (0.145 F1, 24.9% accuracy on Gemma 4 31B). "
+            "Also practicing general ML, Deep Learning, Transformers, and LLM Post-Training interview questions."
         ),
         coaching_style=(
             "Act as an interactive ML & LLM Technical Interviewer and Answer Coach: "
-            "(1) Ask ONE realistic, high-signal ML or LLM interview question at a time and wait for the candidate's response. "
+            "(1) Ask ONE realistic, high-signal interview question at a time (either probing the candidate's own CRAM SFT+GRPO project — "
+            "QLoRA setup, why SFT loss stayed ~2.05, GRPO G=4 group baseline & KL=0.0, the Exploration Wall across 12 runs, SAMB bag-of-tags "
+            "reward hacking vs per-block Macro-F1 — or core ML/LLM post-training topics) and wait for the candidate's response. "
             "(2) When the candidate answers, grade their answer (e.g. X/10), clearly note What You Got Right, What Was Missing or Imprecise, "
-            "and give 3-4 concrete, actionable Suggestions to Improve Their Answer, followed by a crisp Model Senior-Level Answer. "
+            "and give 3-4 concrete, actionable Suggestions to Improve Their Answer, followed by a crisp Model 'Say It Like This' Answer. "
             "(3) Automatically save a structured Q&A Feedback Note into Reference Notes (using save_revision_note / save_note) capturing the Question, "
             "Candidate's Answer Summary, Suggestions to Improve, and Model Answer. "
             "(4) End by asking the next follow-up or a new ML interview question."
@@ -203,6 +208,64 @@ BUILTIN_PERSONAS: list[UserPersona] = [
 
 
 BUILTIN_NOTES: list[RevisionNote] = [
+    RevisionNote(
+        id="note-cram-sft-grpo",
+        problem_id="T18",
+        problem_title="CRAM Project Deep-Dive: SFT + GRPO, The Exploration Wall & SAMB Evaluator Reward-Hacking",
+        title="🎯 CRAM Interview Prep: SFT & GRPO in Plain English (2-Page Cheat Sheet + Full 12-Section Guide)",
+        category="CRAM SFT & GRPO Interview Prep",
+        key_takeaways=[
+            "Problem & QLoRA Setup: CRAM ('Context-Rational Agentic Memory') teaches google/gemma-4-E4B-it (4-bit NF4 + double quant, LoRA r=8, alpha=16, 5.5M params = 0.069%, 8-bit AdamW, ~23 GB on 1 H100) to emit 4 memory directives ([KEEP], [COMPRESS], [EVICT], [REFOCUS]) and preserve <shield> facts across 156 multi-step tasks (11 shielded).",
+            "Why SFT Didn't Take (Run 11): 156 Claude-generated gold answers (3 epochs, lr=2e-4, 114 steps) only ever used [KEEP] (zero COMPRESS/EVICT/REFOCUS). Cross-entropy loss stayed flat (2.06 -> 2.04 -> 2.06) and <think>/<answer> format score remained -0.18 in GRPO-after-SFT.",
+            "GRPO Mechanics & Why KL = 0.0: G = 4 rollouts per task, grad accum 4 (16 rollouts/update), no critic network, advantage = score - group_mean (sums to 0), no PPO ratio clip, grad clip 1.0. 5-part reward = Format (+0.1/+0.1/-0.2) + Task (0..+1) + Directive (+1/+3/+5) + Shield (+1 or -2/drop) + Thrift (0..-1 over 150 words). KL (beta=0.04 via model.disable_adapter()) logged 0.0 at every step because the 0.069% adapter barely moved.",
+            "The Exploration Wall (Central Finding across 12 Runs): If 0 of G=4 rollouts emit a directive, all 4 get 0 directive bonus, group average = 0, and advantage difference = 0. Raising bonus +1 -> +3 -> +5 multiplied zero (usage stayed 0.3% -> 1.3% -> 1.3%). Changing one prompt word ('may' -> 'must', Run 6) unlocked directives from step 2 (7.0% usage, best roll20 +0.277); in Curriculum (100 'must' -> 100 'may'), usage fell from 9.2% back to 0.5%.",
+            "The SAMB Reward-Hacking Story: Original offline grader checked if gold tag string appeared anywhere ('bag of tags') — printing all 4 tags scored 1.0 on every metric. Fixing it to parse block -> directive with 4-class Macro-F1 revealed Gemma 4 31B scored 24.9% accuracy (chance = 25%) and 0.145 Macro-F1 because 139/156 (89%) outputs repeated KEEP, COMPRESS, EVICT, KEEP regardless of content.",
+        ],
+        code_or_formula=(
+            "Gemma 4-E4B-it (4-bit NF4, LoRA r=8, α=16, 5.5M params = 0.069%)\n"
+            "  │\n"
+            "  ▼  SFT: 156 Claude gold answers (all [KEEP]), 3 epochs, lr 2e-4 (loss stayed ~2.05)\n"
+            "  │\n"
+            "  ▼  GRPO: G=4 answers/task → A_i = R_i − mean(R) (no critic, grad accum 4 = 16 rollouts)\n"
+            "          R = Format + Task + Directive(+1/+3/+5) + Shield(+1/-2) + Thrift; KL β=0.04 (logged 0.0)\n"
+            "  │\n"
+            "  ▼  Eval: 'may' prompt → ~0–1.3% directives (Exploration Wall) | 'must' prompt → 7.0%, roll20 +0.277\n"
+            "          SAMB Fix: Bag-of-Tags (hacked to 1.0) → Per-Block 4-Class Macro-F1 (0.145 F1, 24.9% acc)"
+        ),
+        content=(
+            "### 🗣️ Ready-to-Use 'Say It Like This' Interview Quotes\n"
+            "- **Problem:** *'Agents forget the one detail they need because their memory is a fixed-size window. I tried to teach a small model to decide what to keep and what to throw away, and never to drop protected facts.'*\n"
+            "- **QLoRA Setup:** *'I trained only about 5.5 million parameters, under 0.1% of the model, on a 4-bit copy of the model. That made each experiment fit on one H100 in about two hours.'*\n"
+            "- **Why SFT Didn't Take:** *'My SFT didn't take: loss stayed flat around 2.05, and the gold data only ever showed [KEEP]. The lesson is that the demonstrations must cover the behaviour you want. Mine covered one of four directives.'*\n"
+            "- **Why GRPO:** *'GRPO is RL without a critic. The model writes four answers, I score them, and each answer is judged against its siblings\\' average. That\\'s cheap and stable for a small model.'*\n"
+            "- **The Exploration Wall:** *'The biggest lesson was the exploration wall. Rewarding a behaviour the model never tries does nothing, whatever the size of the reward. One word in the prompt, \"must\" instead of \"may\", did more than five times the reward.'*\n"
+            "- **Reward Hacking:** *'My first evaluator could be beaten by printing every tag. The model would have looked perfect. After per-block parsing and Macro-F1 it scored at chance, 0.145 F1. Since then I attack my own grader before I trust any score.'*\n\n"
+            "### 🔧 4 Concrete Next Steps to Mention\n"
+            "1. **Balanced Gold Data:** All 4 directives (`KEEP`, `COMPRESS`, `EVICT`, `REFOCUS`), block-labelled and verified by the per-block grader.\n"
+            "2. **Verified SFT Run:** Fix chat template alignment, confirm cross-entropy loss falls, and verify directive rate rises *before* starting RL.\n"
+            "3. **Un-gameable GRPO Reward & Larger Group Size:** Reward the *correct* directive per block (Macro-F1) rather than any tag, mix `'must'` and `'may'` prompts, and sweep larger group size $G \\in \\{8, 16\\}$ to overcome rare-behavior exploration.\n"
+            "4. **Non-Zero KL & Forgetting Check:** Verify $\\text{KL} > 0$ from step 1 and track a held-out general benchmark (since task reward dipped $0.36 \\to 0.21$ after SFT)."
+        ),
+        resources=[
+            {
+                "title": "CRAM: SFT and GRPO, in plain English (2-Page Interview Cheat Sheet HTML)",
+                "url": "/materials/interview-sft-grpo-explainer.html",
+                "video_id": "",
+                "channel": "CRAM Interview Prep (2-Page HTML)",
+                "duration": "Cheat Sheet",
+                "kind": "docs",
+            },
+            {
+                "title": "CRAM: SFT and GRPO, explained properly (Full 12-Section Interview Guide HTML)",
+                "url": "/materials/interview-sft-grpo-explained.html",
+                "video_id": "",
+                "channel": "CRAM Interview Prep (Full Guide HTML)",
+                "duration": "12 Sections",
+                "kind": "docs",
+            },
+        ],
+        source="tutorial",
+    ),
     RevisionNote(
         id="note-slp3-ch8",
         problem_id="T11",

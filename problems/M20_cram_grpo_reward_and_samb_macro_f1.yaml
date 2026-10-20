@@ -1,0 +1,169 @@
+id: M20
+slug: cram-grpo-reward-and-samb-macro-f1
+title: "CRAM SFT+GRPO: Group Advantages, Exploration Wall & Anti-Reward-Hacking Macro-F1"
+kind: coding
+track: ml
+day: 7
+difficulty: medium
+pattern:
+  - grpo
+  - reward_hacking
+  - post_training
+  - evaluation
+post_training_relevance: "Implements the exact math from your CRAM SFT+GRPO interview prep HTML guides: (1) the 5-part GRPO composite reward (Format + Task + Directive + Shield + Thrift), (2) group-centered advantages A_i = R_i - mean(R) showing why 0 directives across G=4 rollouts yields 0 gradient signal (the Exploration Wall), and (3) per-block 4-class Macro-F1 to defeat the SAMB bag-of-tags reward hack."
+statement: |
+  In your **CRAM ("Context-Rational Agentic Memory")** SFT + GRPO experiments ([2-Page Cheat Sheet](/materials/interview-sft-grpo-explainer.html) | [Full 12-Section Guide](/materials/interview-sft-grpo-explained.html)), you trained `gemma-4-E4B-it` (4-bit NF4, LoRA $r=8, \alpha=16$) with **GRPO** ($G=4$ rollouts per task) to emit four memory directives:
+  `KEEP`, `COMPRESS`, `EVICT`, and `REFOCUS`, while preserving `<shield>` entities.
+
+  Implement `evaluate_cram_grpo_and_samb(rollout_Directives, base_scores, directive_bonus, gold_blocks, pred_blocks)` that computes:
+
+  1. **GRPO Group Rewards & Advantages ($G$ rollouts):**
+     - Given `base_scores: list[float]` (the sum of `Format + Task + Shield + Thrift` for each of the $G$ rollouts) and `rollout_directives: list[bool]` (whether each rollout contained any directive tag), compute each rollout's total reward:
+       $$R_i = \text{base\_scores}[i] + (\text{directive\_bonus} \text{ if rollout\_directives}[i] \text{ else } 0.0)$$
+     - Compute the group mean $\bar{R} = \frac{1}{G}\sum_{i=1}^G R_i$ and each rollout's **group-centered advantage** (no std normalization, matching your CRAM code `advantage = score - group_mean`):
+       $$A_i = R_i - \bar{R}$$
+     - Compute `directive_advantage_spread`: the difference between the maximum and minimum directive contribution inside the group (`0.0` when all $G$ rollouts have no directive — illustrating the **Exploration Wall** where $+1, +3, +5$ all multiply zero!).
+
+  2. **SAMB Anti-Reward-Hacking Evaluator (Bag-of-Tags vs. Per-Block 4-Class Macro-F1):**
+     - Given `gold_blocks: list[str]` and `pred_blocks: list[str]` (each element in `{"KEEP", "COMPRESS", "EVICT", "REFOCUS"}` of length $N \ge 1$):
+     - **`bag_of_tags_hacked`**: `True` if every unique directive present in `gold_blocks` also appears *anywhere* in `pred_blocks` (`set(gold_blocks).issubset(set(pred_blocks))`), showing how printing all 4 tags trivially hacks a bag-of-tags grader.
+     - **`block_accuracy`**: fraction of positions $j \in \{0, \dots, N-1\}$ where `pred_blocks[j] == gold_blocks[j]`.
+     - **`macro_f1`**: average per-class $F_1$ across the 4 directives `["KEEP", "COMPRESS", "EVICT", "REFOCUS"]`:
+       $$\text{F1}_c = \frac{2 \cdot \text{TP}_c}{2 \cdot \text{TP}_c + \text{FP}_c + \text{FN}_c}$$
+       (if $2 \cdot \text{TP}_c + \text{FP}_c + \text{FN}_c == 0$ for class $c$, define $\text{F1}_c = 0.0$). Average $\text{F1}_c$ equally over all 4 classes.
+
+  Return a dictionary with keys `"rewards"`, `"advantages"`, `"directive_advantage_spread"`, `"bag_of_tags_hacked"`, `"block_accuracy"`, and `"macro_f1"`, with all floats rounded to `4` decimal places.
+
+examples:
+  - input: "rollout_directives=[False, False, False, False], base_scores=[0.4, 0.2, 0.2, 0.0], directive_bonus=5.0, gold_blocks=['KEEP', 'EVICT', 'COMPRESS', 'REFOCUS'], pred_blocks=['KEEP', 'COMPRESS', 'EVICT', 'KEEP']"
+    output: "{'rewards': [0.4, 0.2, 0.2, 0.0], 'advantages': [0.2, 0.0, 0.0, -0.2], 'directive_advantage_spread': 0.0, 'bag_of_tags_hacked': False, 'block_accuracy': 0.25, 'macro_f1': 0.1667}"
+    explanation: "Because 0 of 4 rollouts emitted a directive, raising directive_bonus to +5.0 gives 0 directive advantage spread (the Exploration Wall). And repeating KEEP, COMPRESS, EVICT, KEEP scores only 0.25 accuracy and 0.1667 Macro-F1."
+  - input: "rollout_directives=[True, False, False, False], base_scores=[0.2, 0.4, 0.4, 0.0], directive_bonus=1.0, gold_blocks=['KEEP', 'EVICT', 'COMPRESS', 'REFOCUS'], pred_blocks=['REFOCUS', 'COMPRESS', 'EVICT', 'KEEP']"
+    output: "{'rewards': [1.2, 0.4, 0.4, 0.0], 'advantages': [0.7, -0.1, -0.1, -0.5], 'directive_advantage_spread': 1.0, 'bag_of_tags_hacked': True, 'block_accuracy': 0.0, 'macro_f1': 0.0}"
+    explanation: "Matches §4.1 of your CRAM guide ([1.2, 0.4, 0.4, 0.0] -> mean 0.5 -> advantages [+0.7, -0.1, -0.1, -0.5]) and shows how listing all 4 tags sets bag_of_tags_hacked=True while per-block Macro-F1 catches that 0 blocks matched (0.0)."
+
+constraints:
+  - "len(rollout_directives) == len(base_scores) >= 1"
+  - "len(gold_blocks) == len(pred_blocks) >= 1"
+  - "Round all returned floats to 4 decimal places."
+
+function_name: evaluate_cram_grpo_and_samb
+starter_code: |
+  from typing import Any
+
+  def evaluate_cram_grpo_and_samb(
+      rollout_directives: list[bool],
+      base_scores: list[float],
+      directive_bonus: float,
+      gold_blocks: list[str],
+      pred_blocks: list[str],
+  ) -> dict[str, Any]:
+      # Implement CRAM GRPO group advantages and SAMB per-block 4-class Macro-F1
+      pass
+
+tests:
+  - args:
+      - [false, false, false, false]
+      - [0.4, 0.2, 0.2, 0.0]
+      - 5.0
+      - ["KEEP", "EVICT", "COMPRESS", "REFOCUS"]
+      - ["KEEP", "COMPRESS", "EVICT", "KEEP"]
+    expected:
+      rewards: [0.4, 0.2, 0.2, 0.0]
+      advantages: [0.2, 0.0, 0.0, -0.2]
+      directive_advantage_spread: 0.0
+      bag_of_tags_hacked: false
+      block_accuracy: 0.25
+      macro_f1: 0.1667
+  - args:
+      - [true, false, false, false]
+      - [0.2, 0.4, 0.4, 0.0]
+      - 1.0
+      - ["KEEP", "EVICT", "COMPRESS", "REFOCUS"]
+      - ["REFOCUS", "COMPRESS", "EVICT", "KEEP"]
+    expected:
+      rewards: [1.2, 0.4, 0.4, 0.0]
+      advantages: [0.7, -0.1, -0.1, -0.5]
+      directive_advantage_spread: 1.0
+      bag_of_tags_hacked: true
+      block_accuracy: 0.0
+      macro_f1: 0.0
+
+hidden_tests:
+  - args:
+      - [true, true, false, false]
+      - [0.5, 0.1, 0.3, -0.1]
+      - 3.0
+      - ["KEEP", "COMPRESS", "EVICT", "REFOCUS"]
+      - ["KEEP", "COMPRESS", "EVICT", "REFOCUS"]
+    expected:
+      rewards: [3.5, 3.1, 0.3, -0.1]
+      advantages: [1.8, 1.4, -1.4, -1.8]
+      directive_advantage_spread: 3.0
+      bag_of_tags_hacked: true
+      block_accuracy: 1.0
+      macro_f1: 1.0
+
+hints:
+  - "For GRPO rewards & advantages: `rewards = [b + (directive_bonus if has_dir else 0.0) for b, has_dir in zip(base_scores, rollout_directives)]`, then subtract `mean_r = sum(rewards) / len(rewards)` from each reward."
+  - "For `directive_advantage_spread`: compute `dir_bonuses = [directive_bonus if d else 0.0 for d in rollout_directives]` and take `max(dir_bonuses) - min(dir_bonuses)`."
+  - "For 4-class Macro-F1: loop over `c in ['KEEP', 'COMPRESS', 'EVICT', 'REFOCUS']`, count `tp`, `fp`, `fn` across `zip(gold_blocks, pred_blocks)`, compute `f1 = (2 * tp) / (2 * tp + fp + fn)` if the denominator > 0 else `0.0`, and average across the 4 classes."
+
+optimal:
+  time: "O(G + N)"
+  space: "O(G)"
+
+follow_ups:
+  - "Why do the group advantages always sum to 0.0 in GRPO, and why does CRAM use `score - group_mean` without dividing by `group_std` when all 4 rollouts have identical directive scores?"
+  - "In your SAMB evaluation of Gemma 4 31B across 156 samples, why did 89% (139/156) of outputs emit the fixed sequence KEEP, COMPRESS, EVICT, KEEP, and why did Macro-F1 drop to 0.145?"
+
+reference_solution: |
+  from typing import Any
+
+  def evaluate_cram_grpo_and_samb(
+      rollout_directives: list[bool],
+      base_scores: list[float],
+      directive_bonus: float,
+      gold_blocks: list[str],
+      pred_blocks: list[str],
+  ) -> dict[str, Any]:
+      dir_contribs = [directive_bonus if d else 0.0 for d in rollout_directives]
+      rewards = [b + dc for b, dc in zip(base_scores, dir_contribs)]
+      mean_r = sum(rewards) / len(rewards)
+      advantages = [r - mean_r for r in rewards]
+      spread = max(dir_contribs) - min(dir_contribs)
+
+      bag_hacked = set(gold_blocks).issubset(set(pred_blocks))
+      n = len(gold_blocks)
+      acc = sum(1 for g, p in zip(gold_blocks, pred_blocks) if g == p) / n
+
+      classes = ["KEEP", "COMPRESS", "EVICT", "REFOCUS"]
+      f1_sum = 0.0
+      for c in classes:
+          tp = sum(1 for g, p in zip(gold_blocks, pred_blocks) if g == c and p == c)
+          fp = sum(1 for g, p in zip(gold_blocks, pred_blocks) if g != c and p == c)
+          fn = sum(1 for g, p in zip(gold_blocks, pred_blocks) if g == c and p != c)
+          denom = 2 * tp + fp + fn
+          f1_sum += (2.0 * tp / denom) if denom > 0 else 0.0
+
+      macro_f1 = f1_sum / len(classes)
+      return {
+          "rewards": [round(x, 4) for x in rewards],
+          "advantages": [round(x, 4) for x in advantages],
+          "directive_advantage_spread": round(spread, 4),
+          "bag_of_tags_hacked": bool(bag_hacked),
+          "block_accuracy": round(acc, 4),
+          "macro_f1": round(macro_f1, 4),
+      }
+
+resources:
+  - title: "CRAM: SFT and GRPO, in plain English (2-Page Interview Cheat Sheet HTML)"
+    url: "/materials/interview-sft-grpo-explainer.html"
+    channel: "CRAM Interview Prep"
+    duration: "2-Page HTML"
+    kind: "docs"
+  - title: "CRAM: SFT and GRPO, explained properly (Full 12-Section Interview Guide HTML)"
+    url: "/materials/interview-sft-grpo-explained.html"
+    channel: "CRAM Interview Prep"
+    duration: "Full HTML Guide"
+    kind: "docs"

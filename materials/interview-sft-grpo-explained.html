@@ -1,0 +1,648 @@
+<!doctype html><html><head><meta charset="utf-8"><title>CRAM SFT + GRPO explained</title><style>body{font:15px/1.6 -apple-system,Segoe UI,Arial,sans-serif;max-width:940px;margin:28px auto;padding:0 20px;color:#202124}
+h1{font-size:26px;color:#1A73E8;border-bottom:3px solid #1A73E8;padding-bottom:8px}h2{font-size:20px;color:#1A73E8;margin-top:34px;border-bottom:1px solid #DADCE0;padding-bottom:4px}h3{font-size:16px;color:#202124;margin-top:20px}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}th{background:#1A73E8;color:#fff;text-align:left}th,td{border:1px solid #DADCE0;padding:6px 9px;vertical-align:top}
+tr:nth-child(even) td{background:#F8F9FA}code{background:#F1F3F4;padding:1px 5px;border-radius:3px;font-size:13px}
+pre{background:#202124;color:#E8EAED;padding:14px;border-radius:8px;font-size:13px;overflow-x:auto;line-height:1.4}pre code{background:none;color:inherit}
+blockquote{border-left:5px solid #188038;margin:12px 0;padding:8px 14px;background:#E6F4EA;border-radius:0 6px 6px 0}
+hr{border:none;border-top:1px solid #DADCE0;margin:24px 0}
+@media print{body{max-width:none;margin:0;font-size:11px;line-height:1.4}code{font-size:9.5px}pre{font-size:9.5px}table{font-size:10px}h2{page-break-after:avoid}}</style></head><body><h1>CRAM: SFT and GRPO, explained properly</h1>
+<p><em>Long version of the 2-page cheat sheet. Every number is from the repo:</em></p>
+<ul>
+<li><em>code: <code>agent_tooluse/grpo_training/</code>;</em></li>
+<li><em>metric logs: <code>results/*_metrics.csv</code>;</em></li>
+<li><em>write-ups: <code>results/cram_experiment_report.md</code>, <code>planning/technical_policy_training_details.md</code>, <code>SAMB/samb_review_and_recommendation.md</code>.</em></li>
+</ul>
+<p><em><strong><b style="color:#EA4335">[NOT FOUND]</b></strong> = not in the repo. <strong><b style="color:#B06000">[CHECK</b>]</strong> = sources disagree or it's unclear. Grey &quot;Say it like this&quot; boxes are suggested wording for the interview.</em></p>
+<hr />
+<h2>0. Contents</h2>
+<ol>
+<li>The problem in everyday words</li>
+<li>The model and how I trained it cheaply (quantization, LoRA)</li>
+<li>SFT: learning from worked examples</li>
+<li>GRPO: learning by trying and comparing</li>
+<li>The reward, part by part</li>
+<li>The exploration wall, the central finding</li>
+<li>All 12 runs, one by one</li>
+<li>The reward-hacking story (the evaluator bug)</li>
+<li>Things that went wrong, and what I learned</li>
+<li>Whiteboard diagram</li>
+<li>Likely questions, with fuller answers</li>
+<li>Glossary</li>
+</ol>
+<hr />
+<h2>1. The problem in everyday words</h2>
+<p>An AI agent works like a person at a small desk. The desk is the model's <strong>context window</strong>: the text it can see at once. On a long task, papers pile up: tool outputs, error messages, earlier steps. When the desk is full, something must go. Usually the oldest papers are thrown away (<strong>truncation</strong>), or everything is shortened the same way (<strong>summarisation</strong>). Both can destroy the one detail the agent needs later: a patient ID, a gene name, a ticket number.</p>
+<p><strong>CRAM</strong> (&quot;Context-Rational Agentic Memory&quot;) asked: can a small model learn to tidy its own desk? It would label pieces of text with four &quot;directives&quot;:</p>
+<table>
+<thead>
+<tr>
+  <th>directive</th>
+  <th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>[KEEP]</code></td>
+  <td>this matters, hold on to it</td>
+</tr>
+<tr>
+  <td><code>[COMPRESS]</code></td>
+  <td>shorten this</td>
+</tr>
+<tr>
+  <td><code>[EVICT]</code></td>
+  <td>throw this away</td>
+</tr>
+<tr>
+  <td><code>[REFOCUS]</code></td>
+  <td>step back to the main goal</td>
+</tr>
+</tbody>
+</table>
+<p>Some items in a task are wrapped in <code>&lt;shield&gt;…&lt;/shield&gt;</code> (for example <code>&lt;shield&gt;JIRA-402&lt;/shield&gt;</code>). These must never be dropped. That's the <strong>Guardian Shield</strong> idea.</p>
+<p><strong>Dataset:</strong></p>
+<ul>
+<li>156 real multi-step agent tasks across 14 domains (engineering, health, life sciences, finance, legal and others);</li>
+<li>11 of the 156 contain shield tags.</li>
+</ul>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;Agents forget the one detail they need because their memory is a fixed-size window. I tried to teach a small model to decide what to keep and what to throw away, and never to drop protected facts.&quot;</p>
+</blockquote>
+<hr />
+<h2>2. The model, and how I trained it cheaply</h2>
+<p><strong>Model:</strong> <code>google/gemma-4-E4B-it</code>, an instruction-tuned Gemma 4 model the repo calls 4B parameters. The parameter printout counts 7,946,605,856 in total, including embeddings.</p>
+<p><strong>Quantization (4-bit NF4).</strong> Normally each weight is stored as a 16-bit number. Quantization stores it in 4 bits. NF4 (&quot;Normal Float 4&quot;) picks those 16 possible values to match the bell-curve shape that weights usually have, so little accuracy is lost. &quot;Double quantization&quot; also compresses the small scaling numbers, saving about 0.4 GB. Result: about 5–6 GB to run the model and about 23 GB to train it, on one H100 80GB.</p>
+<p><strong>LoRA (Low-Rank Adaptation).</strong> Instead of changing all the weights, I froze the model and attached small &quot;adapter&quot; matrices to every linear layer. They learn a correction: new weight = old weight + B·A × (α/r).</p>
+<table>
+<thead>
+<tr>
+  <th>LoRA setting</th>
+  <th>value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>rank r (size of the correction)</td>
+  <td>8</td>
+</tr>
+<tr>
+  <td>scaling α</td>
+  <td>16 (so the correction is scaled × 2)</td>
+</tr>
+<tr>
+  <td>dropout</td>
+  <td>0.05</td>
+</tr>
+<tr>
+  <td>trainable parameters</td>
+  <td>5,505,024, i.e. 0.069% of the model</td>
+</tr>
+</tbody>
+</table>
+<p>B starts at zero, so at step 0 the adapter changes nothing. <strong>QLoRA</strong> = LoRA on top of a quantized model.</p>
+<p><strong>Optimizer:</strong> AdamW 8-bit (stores the optimizer's memory in 8 bits, saving about 4 GB).</p>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;I trained only about 5.5 million parameters, under 0.1% of the model, on a 4-bit copy of the model. That made each experiment fit on one H100 in about two hours.&quot;</p>
+</blockquote>
+<hr />
+<h2>3. SFT: learning from worked examples</h2>
+<h3>3.1 What it is</h3>
+<p><strong>Supervised fine-tuning</strong> is like a teacher handing a student finished, correct answers. The student learns to produce answers in the same style.</p>
+<p>Technically, the model reads a question plus a gold answer and is trained to predict each next word of the answer. The error is measured with <strong>cross-entropy loss</strong>: how surprised the model is by the correct next word; lower is better. Only the answer words count. The question words are &quot;masked&quot; (label −100), so the model isn't trained to repeat the question.</p>
+<h3>3.2 Why CRAM needed it</h3>
+<p>On its own, the model almost never wrote a directive:</p>
+<ul>
+<li>0% of answers in the baseline run;</li>
+<li>0.3% in the Guardian run;</li>
+<li>at most about 3% even with tricks (§7).</li>
+</ul>
+<p>SFT was meant to change the model's <strong>default habit</strong> (&quot;prior&quot;), so directives appear without being demanded. GRPO would then shape <em>which</em> directive and <em>when</em> (from the docstring of <code>train_sft_v1.py</code>).</p>
+<h3>3.3 Where the 156 examples came from</h3>
+<p><code>generate_sft_dataset.py</code>:</p>
+<ul>
+<li>sends each of the 156 tasks to a Claude model through the API;</li>
+<li>asks for a <code>&lt;think&gt;</code> reasoning block, an <code>&lt;answer&gt;</code> block, at least one directive, and every shielded entity kept.</li>
+</ul>
+<p>The model name is <b style="color:#B06000">[CHECK</b>]: the docstring says <code>claude-opus-5</code>, the code calls <code>claude-opus-4-8</code>.</p>
+<p>The prompt used the <em>optional</em> wording (&quot;You may emit…&quot;), the same wording GRPO used later, so SFT would teach a habit, not obedience.</p>
+<p><strong>Important fact:</strong> all 156 gold answers use <strong>only <code>[KEEP]</code></strong>. The data has no example of COMPRESS, EVICT or REFOCUS.</p>
+<p><strong>One real example</strong> (task <code>fleet/jira_github_sync_01</code>, trimmed):</p>
+<blockquote>
+<p><strong>Task:</strong> &quot;We need to audit our release branch state. Extract Jira ticket <code>&lt;shield&gt;JIRA-402&lt;/shield&gt;</code> and cross-reference it with GitHub <code>&lt;shield&gt;PR-98&lt;/shield&gt;</code>. Verify if all checks passed, update the Jira status field to 'MERGED', and comment the verified commit hash <code>&lt;shield&gt;7a8f9c2&lt;/shield&gt;</code> into the PR thread.&quot;</p>
+<p><strong>Gold answer:</strong> <code>&lt;think&gt;</code> &quot;…I need to fetch JIRA-402 details, inspect PR-98 CI check results, update the Jira status field, and post the verified commit hash as a PR comment. All three shielded entities must appear in my output.&quot; <code>&lt;/think&gt;</code> <code>&lt;answer&gt;</code> &quot;1. Fetch Jira ticket details: <code>GET /rest/api/3/issue/JIRA-402</code> … 2. Inspect PR-98: <code>GET /repos/{owner}/{repo}/pulls/98</code>, <code>GET …/commits/7a8f9c2/check-runs</code>. Confirm all required status checks show <code>conclusion: success</code>. <strong>[KEEP]</strong> 3. Verify commit hash 7a8f9c2…&quot; <code>&lt;/answer&gt;</code></p>
+</blockquote>
+<h3>3.4 Settings (<code>train_sft_v1.py</code>)</h3>
+<table>
+<thead>
+<tr>
+  <th>setting</th>
+  <th>value</th>
+  <th>plain meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>model</td>
+  <td>gemma-4-E4B-it, 4-bit NF4, LoRA r = 8 / α = 16</td>
+  <td>same setup as the GRPO runs</td>
+</tr>
+<tr>
+  <td>learning rate</td>
+  <td>2e-4</td>
+  <td>how big each update is; higher than GRPO because SFT is more stable</td>
+</tr>
+<tr>
+  <td>epochs</td>
+  <td>3</td>
+  <td>the model saw all examples 3 times</td>
+</tr>
+<tr>
+  <td>steps</td>
+  <td>114 (38 per epoch)</td>
+  <td>number of weight updates</td>
+</tr>
+<tr>
+  <td>batch</td>
+  <td>1 example at a time, 4 accumulated = 4 per update</td>
+  <td>gradient accumulation adds up 4 small steps before one update</td>
+</tr>
+<tr>
+  <td>max length</td>
+  <td>1,024 tokens</td>
+  <td>longer examples are cut</td>
+</tr>
+<tr>
+  <td>grad clip</td>
+  <td>1.0</td>
+  <td>caps how big one update can be</td>
+</tr>
+<tr>
+  <td>GPU</td>
+  <td><b style="color:#B06000">[CHECK</b>]</td>
+  <td>the GRPO runs used an H100 80GB; the SFT script does not name one</td>
+</tr>
+</tbody>
+</table>
+<h3>3.5 What happened</h3>
+<ul>
+<li><strong>Loss did not go down.</strong><ul>
+<li>Mean per epoch: 2.06 → 2.04 → 2.06. First step 1.80, last 2.24.</li>
+<li>In a healthy SFT run, loss falls clearly over the epochs.</li>
+<li>So the model <strong>did not really absorb the examples</strong>.</li>
+<li>Possible reasons <b style="color:#B06000">[CHECK</b>]: learning rate or steps too low for a 0.069% adapter; a mismatch between the chat template and the gold text; only 156 examples.</li>
+</ul>
+</li>
+<li><strong>Directive use after SFT</strong> was measured only through the next run (GRPO after SFT): 1.0% in its first 50 steps, vs 0.3% without SFT. Practically no change.</li>
+<li><strong>Format didn't improve either.</strong> Every gold answer used <code>&lt;think&gt;</code>/<code>&lt;answer&gt;</code> tags. Yet in GRPO after SFT the format score still averaged about −0.18, the same as in every other run (−0.19). Most answers had neither tag. This is more evidence that SFT didn't change the model's habits.</li>
+<li>Stop-token accuracy: <strong><b style="color:#EA4335">[NOT FOUND]</b></strong>. Token reduction: <strong><b style="color:#EA4335">[NOT FOUND]</b></strong>. Neither was measured for these models.</li>
+</ul>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;My SFT didn't take: loss stayed flat around 2.05, and the gold data only ever showed <code>[KEEP]</code>. The lesson is that the demonstrations must cover the behaviour you want. Mine covered one of four directives.&quot;</p>
+</blockquote>
+<hr />
+<h2>4. GRPO: learning by trying and comparing</h2>
+<h3>4.1 What it is</h3>
+<p><strong>GRPO = Group Relative Policy Optimisation.</strong> It is reinforcement learning (RL): the model learns from scores instead of from copied answers. Each training step:</p>
+<ol>
+<li>Take one task. Let the model write <strong>G = 4</strong> different answers (with randomness, so they differ).</li>
+<li>Score each answer with the reward function (§5). The scoring is fully automatic: plain code, no AI judge.</li>
+<li>Compute each answer's <strong>advantage</strong>: its score minus the group's average score.</li>
+<li>Make above-average answers more likely, and below-average answers less likely. The push is proportional to the advantage.</li>
+</ol>
+<p><strong>An illustration (not from the logs):</strong> four answers score 1.2, 0.4, 0.4 and 0.0. The average is 0.5. The advantages are +0.7, −0.1, −0.1 and −0.5. The first answer is reinforced most, the last is pushed down. The advantages always add up to zero: GRPO only cares which answer was <em>better than its siblings</em>.</p>
+<h3>4.2 How the update works in my code</h3>
+<ul>
+<li><strong>Loss per answer</strong> = advantage × (cross-entropy of that answer) × (its number of tokens). Longer answers carry proportionally more signal. Only answer tokens count.</li>
+<li><strong>KL penalty (β = 0.04).</strong> KL divergence measures how far the trained model has moved from the original. A small penalty keeps it from drifting into nonsense.<ul>
+<li>The reference model is the same model with the adapter switched off (<code>model.disable_adapter()</code>), so no second copy is needed in memory.</li>
+<li><strong>Fact from the logs: the KL value was exactly 0.0 at every step of every run.</strong> The penalty never acted.</li>
+<li>The report reads this as: the adapter changed so little that the two models looked identical at floating-point precision. Most behaviour changes in these runs therefore probably came from the <strong>prompt</strong>, not from learned weights <b style="color:#B06000">[CHECK</b>].</li>
+</ul>
+</li>
+<li><strong>Gradient accumulation 4:</strong> 4 tasks × 4 answers = 16 answers per weight update.</li>
+<li><strong>Gradient clipping at 1.0:</strong> caps the update size. Without it, earlier runs saw losses of ±20 and reward collapse.</li>
+<li><strong>No &quot;clip ε&quot;.</strong> PPO-style ratio clipping is <strong>not</strong> used. It's a plain policy gradient with a group baseline.</li>
+</ul>
+<h3>4.3 Settings</h3>
+<table>
+<thead>
+<tr>
+  <th>setting</th>
+  <th>value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>group size G</td>
+  <td>4</td>
+</tr>
+<tr>
+  <td>grad accumulation</td>
+  <td>4 (16 answers per update)</td>
+</tr>
+<tr>
+  <td>KL β</td>
+  <td>0.04</td>
+</tr>
+<tr>
+  <td>learning rate</td>
+  <td>5e-5 (2e-5 for GRPO after SFT)</td>
+</tr>
+<tr>
+  <td>steps</td>
+  <td>100 per run (200 for curriculum and GRPO after SFT)</td>
+</tr>
+<tr>
+  <td>temperature</td>
+  <td>0.9 (first runs), 1.1 (later), 1.3 (one run)</td>
+</tr>
+<tr>
+  <td>max new tokens</td>
+  <td>300 per answer</td>
+</tr>
+<tr>
+  <td>task sampling</td>
+  <td>with replacement (the same task can repeat)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Temperature</strong> controls randomness when writing: higher means more varied, riskier answers.</p>
+<h3>4.4 Why GRPO and not PPO or DPO</h3>
+<ul>
+<li><strong>PPO</strong> needs a second &quot;critic&quot; network to estimate how good each state is, plus ratio clipping. GRPO replaces the critic with the group average. That's simpler, and it fits on one GPU with the KL reference coming from the same model.</li>
+<li><strong>DPO</strong> learns from pairs of &quot;preferred vs rejected&quot; answers. There is no written reason in the repo for not using it <strong><b style="color:#EA4335">[NOT FOUND]</b></strong>. A fact: the repo has an automatic reward, but no preference pairs.</li>
+</ul>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;GRPO is RL without a critic. The model writes four answers, I score them, and each answer is judged against its siblings' average. That's cheap and stable for a small model.&quot;</p>
+</blockquote>
+<hr />
+<h2>5. The reward, part by part</h2>
+<p>The total score of one answer is the <strong>sum</strong> of these parts, with no extra weights. Only the directive bonus changed between runs.</p>
+<table>
+<thead>
+<tr>
+  <th>part</th>
+  <th>value</th>
+  <th>what it rewards or punishes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><strong>Format</strong></td>
+  <td>+0.1 for <code>&lt;think&gt;</code>, +0.1 for <code>&lt;answer&gt;</code>; −0.2 if neither</td>
+  <td>writing in the expected structure</td>
+</tr>
+<tr>
+  <td><strong>Task</strong></td>
+  <td>0 to +1</td>
+  <td>the share of the task's &quot;must-do&quot; criteria found as keywords (a criterion counts if ≥ 50% of its keywords appear)</td>
+</tr>
+<tr>
+  <td><strong>Directive</strong></td>
+  <td>+1, +3 or +5 (by run)</td>
+  <td>any <code>[KEEP]</code>/<code>[COMPRESS]</code>/<code>[EVICT]</code>/<code>[REFOCUS]</code> anywhere in the answer, right or wrong</td>
+</tr>
+<tr>
+  <td><strong>Shield</strong></td>
+  <td>+1 if all shielded items appear; −2 for each one missing</td>
+  <td>protecting critical facts</td>
+</tr>
+<tr>
+  <td><strong>Thrift (length)</strong></td>
+  <td>0 to −1: −0.5 × min((words − 150) / 100, 2)</td>
+  <td>penalises answers over 150 words; it is the &quot;token thrift&quot; idea</td>
+</tr>
+</tbody>
+</table>
+<p>With a +3 directive bonus, the best possible score is +5.2.</p>
+<p><strong>Weak spots, which I'd name myself:</strong></p>
+<ul>
+<li>The task score is keyword matching, so it can be gamed.</li>
+<li>The directive bonus pays for <em>any</em> tag, not the <em>right</em> tag (see §8).</li>
+<li>93% of tasks have no shield, so the shield term rarely fires.</li>
+</ul>
+<p><strong>Four bugs fixed in the original reward script before the extended runs:</strong></p>
+<ol>
+<li>The shield check was inverted.</li>
+<li>The shield-preservation bonus was missing.</li>
+<li>The directive bonus was missing.</li>
+<li>The run stopped at step 39: 156 tasks ÷ 4 = 39 batches. Fixed by sampling with replacement.</li>
+</ol>
+<hr />
+<h2>6. The exploration wall, the central finding</h2>
+<p><strong>The idea in one line:</strong> RL can only strengthen a behaviour that already happens sometimes.</p>
+<p><strong>Why:</strong></p>
+<ul>
+<li>GRPO learns from <em>differences</em> between the 4 answers in a group.</li>
+<li>If none of the 4 contains a directive, they all get the same directive score (0). The difference is zero, so this part of the reward sends <strong>no signal at all</strong>.</li>
+<li>A bonus of +1, +3 or +5 makes no difference, because 5 × 0 is still 0.</li>
+<li>Only when, by chance, one answer in a group contains a directive does that answer get a positive advantage and become more likely. If that chance is tiny, learning never starts.</li>
+</ul>
+<p><strong>What the logs show:</strong></p>
+<ul>
+<li><strong>Bigger bonus:</strong><ul>
+<li>bonus +1: 0.3% of answers had a directive;</li>
+<li>bonus +3: 1.3%, and 0% in the last 20 steps;</li>
+<li>bonus +5: 1.3%.</li>
+</ul>
+</li>
+<li><strong>More randomness</strong> (temperature 1.3 + bonus 5): 0.5%; the first directive appeared only at step 79.</li>
+<li><strong>A worked example in the prompt:</strong> 3.0% early, 0% by the end.</li>
+<li><strong>Telling it &quot;you MUST use a directive&quot;</strong> (&quot;REQUIRED: you MUST include exactly one memory directive … No directive = task failure.&quot;):<ul>
+<li>directives from step 2, 7.0% overall;</li>
+<li>the best final score of all runs (rolling average +0.277).</li>
+</ul>
+</li>
+<li><strong>Curriculum</strong> (must for 100 steps, then may for 100):<ul>
+<li>9.2% in the &quot;must&quot; phase, 0.5% in the &quot;may&quot; phase;</li>
+<li>the habit vanished when the instruction was removed;</li>
+<li>the pre-set success test (&gt; 10% directive use over steps 130–200) <strong>failed</strong>.</li>
+</ul>
+</li>
+<li><strong>SFT, then GRPO:</strong> 0.5% overall, 0% at the end. <strong>It did not break the wall</strong> (§3.5).</li>
+</ul>
+<p><strong>Why the brief's &quot;it worked after SFT&quot; doesn't match:</strong></p>
+<ul>
+<li>SFT can break the wall only if it actually raises the starting chance of the behaviour.</li>
+<li>My SFT loss never fell, and its data showed only <code>[KEEP]</code>, so the chance stayed near zero.</li>
+<li>The fix would be balanced gold data with all four directives, a working SFT run (falling loss, correct template), and a check that directive use rises <em>before</em> GRPO starts.</li>
+</ul>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;The biggest lesson was the exploration wall. Rewarding a behaviour the model never tries does nothing, whatever the size of the reward. One word in the prompt, 'must' instead of 'may', did more than five times the reward. My SFT was meant to seed the habit permanently, but it didn't take, and I can explain why.&quot;</p>
+</blockquote>
+<hr />
+<h2>7. All 12 runs, one by one</h2>
+<p>&quot;Roll20&quot; = the average total reward over the last 20 steps of the run. The directive % is over all steps. All runs: 100 steps unless noted, G = 4.</p>
+<table>
+<thead>
+<tr>
+  <th>#</th>
+  <th>run</th>
+  <th>what changed</th>
+  <th>result</th>
+  <th>what it taught me</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>1</td>
+  <td>A1 standard</td>
+  <td>format + task reward only</td>
+  <td>roll20 +0.139; directives 0%</td>
+  <td>left alone, it never tidies</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>A2 Guardian</td>
+  <td>+ shield term + directive bonus +1</td>
+  <td>roll20 +0.244; directives 0.3%; shield drops on 4 of 100 steps</td>
+  <td>shields are mostly respected; directives don't appear</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>A2 bonus +3</td>
+  <td>bonus × 3</td>
+  <td>−0.031; 1.3% (0% in the last 20)</td>
+  <td>a bigger reward doesn't create exploration</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>A2 bonus +5</td>
+  <td>bonus × 5</td>
+  <td>+0.060; 1.3%</td>
+  <td>same</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td>A2 few-shot</td>
+  <td>worked example in the prompt (a patient-ID <code>[KEEP]</code> example)</td>
+  <td>+0.037; 3.0% early, 0% at the end</td>
+  <td>one example doesn't stick</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td>v2a forced</td>
+  <td>prompt says <strong>must</strong> use a directive (bonus +3, temperature 1.1)</td>
+  <td><strong>+0.277</strong> final; 7.0%; from step 2</td>
+  <td>seeding the behaviour lets RL work</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td>v2c high temperature</td>
+  <td>temperature 1.3 + bonus +5</td>
+  <td>+0.208; 0.5% (first at step 79)</td>
+  <td>randomness alone is far too rare</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td>A3 contrastive</td>
+  <td>contrastive task-pair dataset</td>
+  <td>−0.014; 0%</td>
+  <td>no help</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td>A4 unified</td>
+  <td>all domains combined</td>
+  <td>+0.051; 0%</td>
+  <td>no help</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td>curriculum (200 steps)</td>
+  <td>must (1–100) → may (101–200)</td>
+  <td>9.2% → 0.5%; final −0.149</td>
+  <td>the habit didn't survive removing the instruction</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td>SFT v1</td>
+  <td>156 Claude-written gold answers, 3 epochs</td>
+  <td>loss flat (2.06 / 2.04 / 2.06)</td>
+  <td>didn't learn; data had only <code>[KEEP]</code></td>
+</tr>
+<tr>
+  <td>12</td>
+  <td>GRPO after SFT (200 steps)</td>
+  <td>SFT adapter + &quot;may&quot; prompt, lr 2e-5</td>
+  <td>−0.055; 0.5% (0% at the end)</td>
+  <td>SFT didn't seed the behaviour</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reading the &quot;peak&quot; numbers honestly:</strong></p>
+<ul>
+<li>Run 6's best rolling average was 0.752 at <strong>step 3</strong>, when &quot;the last 20 steps&quot; covered only 3 steps.</li>
+<li>So that peak reflects the instruction, not learning. Its mean reward over all 100 steps was 0.314.</li>
+<li>Quote the final +0.277 and &quot;directives from step 2&quot;.</li>
+</ul>
+<p><strong>Shield note:</strong> the resume says &quot;zero shield violations across all 100-step runs&quot;. The logs show violations on 0–7 steps per run (run 2: 4 of 100). Zero holds for the early 39-step run and for runs 1, 8 and 9. <strong>Rephrase it as &quot;rare (0–7 of 100 steps)&quot;.</strong></p>
+<hr />
+<h2>8. The reward-hacking story (the evaluator bug)</h2>
+<p><strong>Reward hacking</strong> = the model, or simply a lucky answer, scores well by exploiting a flaw in how the score is computed, not by doing the task.</p>
+<p><strong>Where it showed up.</strong> SAMB (&quot;Static Agentic Memory Benchmark&quot;) is an offline test.</p>
+<ul>
+<li>It freezes agent trajectories into blocks, and each block has a gold directive.</li>
+<li>The first grader (<code>evaluate_samb.py</code>) counted a block as correct if its gold directive string appeared <strong>anywhere</strong> in the model's output. That's a &quot;bag of tags&quot;: it never checked <em>which block</em> got <em>which</em> directive.</li>
+<li><strong>Before the fix:</strong> an answer that just lists <code>[KEEP][COMPRESS][EVICT][REFOCUS]</code> plus the shielded words scored <strong>1.0 on every metric</strong> (verified in <code>SAMB/samb_review_and_recommendation.md</code>).</li>
+<li><strong>The same flaw was in my GRPO reward:</strong> the directive bonus paid for any tag anywhere.</li>
+</ul>
+<p><strong>The fix.</strong></p>
+<ul>
+<li>Make the model answer per block (<code>block_0: [EVICT]</code> …) and parse that (<code>parse_block_directives</code>).</li>
+<li>Score with <strong>Macro-F1</strong>. F1 balances precision (&quot;of the times you said EVICT, how often was it right&quot;) and recall (&quot;of the true EVICTs, how many you found&quot;). <em>Macro</em> averages F1 over the four directive types equally, so always answering KEEP scores badly.</li>
+</ul>
+<p><strong>After the fix</strong> (Gemma 4 31B, live inference, 156 samples):</p>
+<ul>
+<li>directive accuracy 24.9% (pure chance with four options is 25%);</li>
+<li>Macro-F1 0.145;</li>
+<li>139 of 156 outputs (89%) gave the identical sequence KEEP, COMPRESS, EVICT, KEEP, whatever the content.</li>
+</ul>
+<p><strong>What that means:</strong> the model wasn't reading the content; the old grader hid that completely. (This measurement is on the 31B model, not the 4B models trained above.)</p>
+<blockquote>
+<p><strong>Say it like this:</strong> &quot;My first evaluator could be beaten by printing every tag. The model would have looked perfect. After per-block parsing and Macro-F1 it scored at chance, 0.145 F1. Since then I attack my own grader before I trust any score.&quot;</p>
+</blockquote>
+<hr />
+<h2>9. Things that went wrong, and what I learned</h2>
+<ul>
+<li><strong>The KL penalty was always 0.0.</strong> It never constrained anything; the adapter barely moved. Lesson: log KL early and check it is non-zero; consider a higher learning rate or an explicit log-probability ratio.</li>
+<li><strong>SFT loss stayed flat, and the data covered one directive.</strong> Lesson: check that demonstrations are balanced, and that SFT changes behaviour, before RL.</li>
+<li><strong>Format score was about −0.19 in every run.</strong> Most answers never used the <code>&lt;think&gt;</code>/<code>&lt;answer&gt;</code> tags the prompt asked for, even after SFT on tagged gold answers. Lesson: check that the structure you reward is reachable, and verify the chat template between data generation, SFT and RL <b style="color:#B06000">[CHECK</b>].</li>
+<li><strong>Keyword task reward and any-tag directive bonus are both gameable.</strong> Lesson: reward the correct action per block (Macro-F1), not the presence of a token.</li>
+<li><strong>Shield signal was sparse</strong> (11 of 156 tasks). Lesson: more shielded tasks, or a separate shield phase.</li>
+<li><strong>Group size 4 was never swept</strong> <b style="color:#EA4335">[NOT FOUND]</b>. Small groups make rare behaviours even rarer in a batch.</li>
+<li><strong>No forgetting check</strong> <b style="color:#EA4335">[NOT FOUND]</b>. The task reward fell after SFT (about 0.36 in Guardian → 0.21 after SFT).</li>
+</ul>
+<hr />
+<h2>10. Whiteboard diagram</h2>
+<pre><code>            ┌─────────────────────────────────────┐
+            │ Gemma 4-E4B-it, 4-bit NF4 + LoRA r8 │
+            └──────────────────┬──────────────────┘
+                               ▼
+   SFT ── 156 Claude-written gold answers (all [KEEP]) ── 3 epochs, lr 2e-4
+          (copy the teacher; loss stayed ~2.05)
+                               ▼
+   GRPO ── per task: 4 answers ─► score each (code, no judge)
+           advantage = score − group average ─► push up the better ones
+           reward = format + task + directive + shield + length
+           KL β 0.04 (measured 0.0) · lr 2e-5 · 200 steps
+                               ▼
+   Eval ── directive use %, shield violations, rolling reward
+           offline SAMB: per-block parsing + Macro-F1
+
+   Key arrow:  &quot;may&quot; prompt → ~0–1% directives   |   &quot;must&quot; prompt → from step 2
+</code></pre>
+<hr />
+<h2>11. Likely questions, with fuller answers</h2>
+<p><strong>&quot;Why didn't more reward fix it?&quot;</strong>
+GRPO compares the answers it actually wrote. If no answer in a group has a directive, all four get the same directive score, so the difference that drives learning is zero. Raising the bonus from +1 to +5 multiplied zero: usage stayed around 1%. Only changing what the model <em>tries</em> (the &quot;must&quot; prompt) produced directives, from step 2.</p>
+<p><strong>&quot;How did you pick group size?&quot;</strong>
+G = 4, documented as &quot;enough diversity for relative advantage&quot;, under a one-H100 memory budget (training ≈ 23 GB). I did not sweep G <b style="color:#EA4335">[NOT FOUND]</b>. In hindsight, a larger G (8–16) would raise the chance that at least one answer per group shows a rare behaviour. That's directly relevant to the exploration wall.</p>
+<p><strong>&quot;How do you know it didn't forget other skills?&quot;</strong>
+I don't. There was no separate forgetting benchmark <b style="color:#EA4335">[NOT FOUND]</b>. A warning sign: after SFT the task reward fell from about 0.36 (Guardian run) to 0.21. Before any next run I'd add a held-out general benchmark and track it per checkpoint.</p>
+<p><strong>&quot;What would you do next?&quot;</strong></p>
+<ol>
+<li>Balanced gold data: all four directives, block-labelled, verified by the per-block grader.</li>
+<li>A working SFT run: correct chat template, loss that falls, and a measured rise in directive use before RL.</li>
+<li>GRPO with a reward for the <em>correct</em> directive (Macro-F1 per block), not for any tag; a mix of &quot;must&quot; and &quot;may&quot; prompts during training; a larger G.</li>
+<li>Check KL is non-zero from the first steps.</li>
+</ol>
+<p><strong>&quot;What surprised you most?&quot;</strong>
+That one word in the prompt (&quot;must&quot; instead of &quot;may&quot;) beat five times the reward, a few-shot example and higher temperature. Second, that my evaluator could be beaten by printing every tag. That changed how I build evaluations.</p>
+<p><strong>&quot;Was the 0.75 peak real?&quot;</strong>
+It was the average of the first 3 steps, driven by the instruction. The honest numbers are the final 20-step average of +0.277 and the mean of 0.314 over 100 steps.</p>
+<p><strong>&quot;Why a small 4B model?&quot;</strong>
+To fit training on one H100 (QLoRA, about 23 GB), and because the target was efficient on-device-style agents.</p>
+<hr />
+<h2>12. Glossary</h2>
+<table>
+<thead>
+<tr>
+  <th>term</th>
+  <th>plain meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Context window</td>
+  <td>everything the model can see at once; its &quot;desk&quot;</td>
+</tr>
+<tr>
+  <td>Directive</td>
+  <td>a label like <code>[KEEP]</code> that says what to do with a piece of text</td>
+</tr>
+<tr>
+  <td>Shield</td>
+  <td>a marked fact that must not be dropped</td>
+</tr>
+<tr>
+  <td>SFT</td>
+  <td>training on worked examples: copy the teacher</td>
+</tr>
+<tr>
+  <td>RL</td>
+  <td>learning from scores instead of examples</td>
+</tr>
+<tr>
+  <td>GRPO</td>
+  <td>RL where each answer is compared with its group's average</td>
+</tr>
+<tr>
+  <td>Rollout</td>
+  <td>one sampled answer during RL</td>
+</tr>
+<tr>
+  <td>Advantage</td>
+  <td>an answer's score minus the group average</td>
+</tr>
+<tr>
+  <td>Policy</td>
+  <td>the model's behaviour (which words it tends to write)</td>
+</tr>
+<tr>
+  <td>Cross-entropy loss</td>
+  <td>how surprised the model is by the correct next word</td>
+</tr>
+<tr>
+  <td>KL divergence</td>
+  <td>how far the trained model has moved from the original</td>
+</tr>
+<tr>
+  <td>LoRA / QLoRA</td>
+  <td>small trainable add-on matrices / the same on a 4-bit model</td>
+</tr>
+<tr>
+  <td>NF4</td>
+  <td>a 4-bit number format matched to bell-shaped weights</td>
+</tr>
+<tr>
+  <td>Temperature</td>
+  <td>randomness when generating text</td>
+</tr>
+<tr>
+  <td>Gradient accumulation</td>
+  <td>adding up several small steps before one update</td>
+</tr>
+<tr>
+  <td>Gradient clipping</td>
+  <td>capping the size of one update</td>
+</tr>
+<tr>
+  <td>Roll20</td>
+  <td>average reward over the last 20 steps</td>
+</tr>
+<tr>
+  <td>Macro-F1</td>
+  <td>an accuracy score that weighs every class equally</td>
+</tr>
+<tr>
+  <td>Reward hacking</td>
+  <td>scoring well by exploiting the scorer, not by doing the task</td>
+</tr>
+<tr>
+  <td>Exploration wall</td>
+  <td>RL can't reinforce a behaviour that never appears</td>
+</tr>
+</tbody>
+</table>
+</body></html>

@@ -8,6 +8,20 @@ from typing import Any
 
 CURATED_DOCS: list[dict[str, str]] = [
     {
+        "keywords": "cram sft grpo exploration wall reward hacking samb macro-f1 qlora nf4 gemma directive shield interview",
+        "title": "CRAM: SFT and GRPO, in plain English (2-Page Interview Cheat Sheet HTML)",
+        "url": "/materials/interview-sft-grpo-explainer.html",
+        "channel": "CRAM Interview Prep",
+        "kind": "docs",
+    },
+    {
+        "keywords": "cram sft grpo exploration wall reward hacking samb macro-f1 qlora nf4 gemma directive shield interview",
+        "title": "CRAM: SFT and GRPO, explained properly (Full 12-Section Interview Guide HTML)",
+        "url": "/materials/interview-sft-grpo-explained.html",
+        "channel": "CRAM Interview Prep",
+        "kind": "docs",
+    },
+    {
         "keywords": "slp3 post-training post_training sft lora rlhf ppo dpo bradley terry reward alignment ecornell",
         "title": "Stanford SLP3 Ch. 8 PDF — Post-Training: SFT, LoRA, RLHF (PPO) & DPO (Local PDF)",
         "url": "/materials/slp3_ch8_post_training.pdf",

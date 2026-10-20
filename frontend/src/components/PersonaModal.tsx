@@ -116,9 +116,18 @@ export const PersonaModal: React.FC = () => {
 
       let targetProblemId = currentProblem?.id;
       if (
-        (saved.id === 'persona-llm-ml' || saved.id === 'persona-ml-interviewer') &&
+        saved.id === 'persona-ml-interviewer' &&
+        (!currentProblem || !['T18', 'M20'].includes(currentProblem.id))
+      ) {
+        try {
+          const cramProblem = await fetchProblem('T18');
+          setCurrentProblem(cramProblem);
+          targetProblemId = cramProblem.id;
+        } catch {}
+      } else if (
+        saved.id === 'persona-llm-ml' &&
         (!currentProblem ||
-          !['M17', 'M18', 'M19', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17'].includes(
+          !['M17', 'M18', 'M19', 'M20', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17', 'T18'].includes(
             currentProblem.id
           ))
       ) {
@@ -141,7 +150,7 @@ export const PersonaModal: React.FC = () => {
         setShowPersonaModal(false);
         setTimeout(() => {
           coachSocket.sendText(
-            'Ask me a realistic ML / LLM interview question right now. After I answer, grade my response, give concrete suggestions to improve my answer, and save the Q&A note to Reference Notes.'
+            'Ask me a realistic interview question right now (either on my CRAM SFT+GRPO project or ML/LLM post-training). After I answer, grade my response, give concrete suggestions to improve my answer, and save the Q&A note to Reference Notes.'
           );
         }, 150);
         return;

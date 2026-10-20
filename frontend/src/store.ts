@@ -117,14 +117,14 @@ export const DEFAULT_PERSONAS: UserPersonaItem[] = [
   },
   {
     id: 'persona-ml-interviewer',
-    name: 'ML Mock Interviewer & Answer Coach',
+    name: 'ML Mock Interviewer & Answer Coach (CRAM SFT+GRPO + ML/LLM)',
     avatar_emoji: '🎯',
-    role: 'ML / LLM Interview Q&A Practice & Feedback',
+    role: 'ML / LLM & CRAM SFT+GRPO Interview Q&A Practice',
     experience_level: 'advanced',
     coding_background:
-      'Practicing Machine Learning, Deep Learning, Transformers, and LLM Post-Training interview questions (SFT, LoRA, Bradley-Terry, RLHF/PPO, DPO, GRPO, Self-Attention, KV Cache, MoE, FlashAttention, BERT, Classical ML, Regularization, Metrics & Optimization).',
+      'Author of CRAM ("Context-Rational Agentic Memory"): trained google/gemma-4-E4B-it with 4-bit NF4 QLoRA (r=8, alpha=16, 5.5M params = 0.069%, ~23 GB on 1 H100) using SFT (156 Claude gold examples, all [KEEP], loss flat at ~2.05) and GRPO (G=4, grad accum 4 = 16 rollouts, KL beta=0.04 via disable_adapter() logged 0.0, 5-part reward: Format + Task + Directive [KEEP]/[COMPRESS]/[EVICT]/[REFOCUS] + <shield> + Thrift) across 12 runs, uncovering the Exploration Wall (+1/+3/+5 bonus stayed ~1.3% vs "must" prompt 7.0% from step 2, roll20 +0.277) and fixing the SAMB bag-of-tags reward-hacking bug with per-block Macro-F1 (0.145 F1, 24.9% acc on Gemma 4 31B). Also practicing ML, Deep Learning, Transformers & LLM Post-Training interview questions.',
     coaching_style:
-      'Act as an interactive ML & LLM Technical Interviewer and Answer Coach: (1) Ask ONE realistic ML or LLM interview question at a time and wait for my answer. (2) When I answer, score my response out of 10, highlight what I got right and what was missing, and give 3-4 concrete suggestions to improve my answer plus a crisp Model Answer. (3) Automatically save a Reference Note recording the question, my answer summary, improvement suggestions, and model answer. (4) Then ask the next ML interview question.',
+      'Act as an interactive ML & LLM Technical Interviewer and Answer Coach: (1) Ask ONE realistic interview question at a time (probing my CRAM SFT+GRPO project or core ML/LLM post-training topics) and wait for my answer. (2) When I answer, score my response out of 10, highlight what I got right and what was missing, and give 3-4 concrete suggestions to improve my answer plus a crisp "Say It Like This" Model Answer. (3) Automatically save a Reference Note recording the question, my answer summary, improvement suggestions, and model answer. (4) Then ask the next interview question.',
     preferred_mode: 'interview',
     preferred_voice: 'Kore',
     preferred_track: 'ml',

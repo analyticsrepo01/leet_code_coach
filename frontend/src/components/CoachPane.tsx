@@ -16,12 +16,13 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { coachSocket } from '../coach/CoachSocket';
-import { requestHintApi, synthesizeRevisionNoteApi } from '../api';
+import { fetchProblem, requestHintApi, synthesizeRevisionNoteApi } from '../api';
 import { LiveAvatarCoach } from './LiveAvatarCoach';
 
 export const CoachPane: React.FC = () => {
   const {
     currentProblem,
+    setCurrentProblem,
     code,
     mode,
     coachEngine,
@@ -340,6 +341,28 @@ export const CoachPane: React.FC = () => {
 
       {/* Quick Prompts */}
       <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto">
+        <button
+          onClick={async () => {
+            if (activePersonaId !== 'persona-ml-interviewer') {
+              setActivePersonaId('persona-ml-interviewer');
+              setMode('interview');
+            }
+            if (!currentProblem || currentProblem.id !== 'T18') {
+              try {
+                const cramProb = await fetchProblem('T18');
+                setCurrentProblem(cramProb);
+              } catch {}
+            }
+            await runArgonChatPrompt(
+              'Ask me one realistic technical interview question about my CRAM (Context-Rational Agentic Memory) SFT + GRPO project (such as why SFT loss stayed ~2.05, why raising the directive bonus from +1 to +3 to +5 hit the Exploration Wall, why KL was 0.0, or how I fixed the SAMB bag-of-tags reward-hacking bug with per-block Macro-F1). After I answer, grade my answer, give me concrete suggestions to improve, and save a note of my answer and feedback.'
+            );
+          }}
+          disabled={isArgonThinking}
+          title="Load your CRAM SFT+GRPO Interview Prep card and get quizzed on your project"
+          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 disabled:opacity-50"
+        >
+          <span>🎯 Quiz Me on CRAM (SFT+GRPO)</span>
+        </button>
         <button
           onClick={() => {
             if (activePersonaId !== 'persona-ml-interviewer') {
